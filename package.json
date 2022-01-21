@@ -3,8 +3,19 @@
   "version": "1.0.0",
   "description": "A docker manager.",
   "main": "dist/index.js",
+  "author": "HalsMaulMajo",
+  "license": "MIT",
+  "private": false,
+  "tags": [
+    "docker",
+    "terrafrom",
+    "fleetform",
+    "typescript",
+    "cli"
+  ],
   "bin": {
-    "fleetform": "bin"
+    "fleetform": "bin",
+    "ffdev": "bints.sh"
   },
   "scripts": {
     "dev": "nodemon --ext '*.ts' -w ${PWD}/src -x 'npm run build; npm run start'",
@@ -14,13 +25,16 @@
     "build": "tsc -p tsconfig.json",
     "tsnode": "ts-node src/index.ts"
   },
-  "author": "HalsMaulMajo",
-  "license": "MIT",
-  "private": false,
   "devDependencies": {
+    "@types/dockerode": "^3.3.0",
     "@types/node": "^16.10.2",
     "nodemon": "^2.0.13",
     "ts-node": "^10.4.0",
     "typescript": "^4.4.3"
+  },
+  "dependencies": {
+    "cmdy": "^1.0.0",
+    "docker-modem": "^3.0.3",
+    "dockerode": "^3.3.1"
   }
 }

@@ -1,27 +1,97 @@
-import { hostname } from "os"
-import { Container, ContainerMap, FleetData, FleetDataError, Host, HostMap, HostRoutes } from "./fleetformType"
+import { Container, ContainerMap, ContainerTask, FleetPlan, FleetSettings, HostImages, FleetValidateError, Host, HostMap, HostRoutes, TaskMap } from "./fleetformTypes"
+import { DockerExecuterOptions } from "./dockerOptions"
+import { DockerExecuter } from "./docker"
+import { HostOptions, HostMapOptions } from "./fleetformOptions"
 
-export const allowedKeys: string[] = ["image", "tag", "publish", "expose", "envs", "volumes", "networks", "args", "host"]
+export interface ConnectionInfo {
+    type: "error" | "success",
+    hostname: string,
+    executer?: DockerExecuter,
+    executerOptions?: DockerExecuterOptions,
+    err?: Error | any,
+    [key: string]: any
+}
 
-export function parseContainer(container: string, obj: any): Container {
+export interface ConnectionInfoMap {
+    [hostname: string]: ConnectionInfo
+}
+
+export async function connectDocker(hostname: string, plan: FleetPlan, test: boolean = false): Promise<ConnectionInfo> {
+    return new Promise<ConnectionInfo>(async (res, rej) => {
+        const hostData = {
+            ...plan.hosts[hostname].connection,
+            host: plan.routes[plan.currentHost][hostname] as string
+        }
+        try {
+            if (!plan.routes) {
+                throw new Error("Routes not exist!")
+            } else if (!plan.routes[plan.currentHost]) {
+                throw new Error("Routes for '" + hostname + "' not exist!")
+            } else if (!plan.routes[plan.currentHost][hostname]) {
+                throw new Error("Values for '" + hostname + "'-route not exist!")
+            }
+            const executer = await DockerExecuter.createExecuter({
+                connection: hostData
+            })
+            res({
+                type: "success",
+                hostname: hostname,
+                executer: executer,
+                hostData: hostData,
+            })
+        } catch (err) {
+            if (!test) {
+                rej(err)
+                return
+            }
+            res({
+                type: "error",
+                hostname: hostname,
+                hostData: hostData,
+                err: err,
+            })
+        }
+    })
+}
+
+export async function connectAllDockerHosts(plan: FleetPlan, test: boolean = false): Promise<ConnectionInfoMap> {
+    const infos: ConnectionInfoMap = {}
+    for (let index = 0; index < plan.usedHosts.length; index++) {
+        const hostname = plan.usedHosts[index]
+        infos[hostname] = await connectDocker(hostname, plan, test)
+    }
+    return infos
+}
+
+export const allowedKeys: string[] = ["enabled", "image", "tag", "publish", "expose", "envs", "volumes", "networks", "args", "host"]
+
+export function parseContainer(container: string, obj: any, currentHost: string): Container {
     if (
         typeof obj != "object" ||
         Array.isArray(obj) ||
         obj == null
     ) {
-        throw new FleetDataError("Container '" + container + "' is not a object!")
+        throw new FleetValidateError("Container '" + container + "' is not a object!")
     }
     const keys = Object.keys(obj)
     keys.forEach((key: string) => {
         if (!allowedKeys.includes(key)) {
-            throw new FleetDataError("The key '" + key + "' is not allowed for a container '" + container + "'!")
+            throw new FleetValidateError("The key '" + key + "' is not allowed for a container '" + container + "'!")
         }
     })
+    if (typeof obj.enabled != "boolean") {
+        obj.enabled = true
+    }
     if (typeof obj.image != "string") {
-        throw new FleetDataError("The key 'image' of container '" + container + "' need to be a string!")
+        throw new FleetValidateError("The key 'image' of container '" + container + "' need to be a string!")
     }
     if (typeof obj.tag != "string") {
         obj.tag = "latest"
+    }
+    if (
+        typeof obj.host != "string"
+    ) {
+        obj.host = currentHost
     }
     if (
         typeof obj.publish != "object" ||
@@ -35,7 +105,7 @@ export function parseContainer(container: string, obj: any): Container {
         Array.isArray(obj.expose) ||
         obj.expose == null
     ) {
-        obj.expose = {}
+        obj.expose = []
     }
     if (
         typeof obj.envs != "object" ||
@@ -60,54 +130,63 @@ export function parseContainer(container: string, obj: any): Container {
     return obj
 }
 
-export function parseContainerMap(obj: any): ContainerMap {
+export function parseContainerMap(obj: any, currentHost: string): ContainerMap {
     if (
         typeof obj != "object" ||
         Array.isArray(obj) ||
         obj == null
     ) {
-        throw new FleetDataError("'container' is not a object!")
+        throw new FleetValidateError("'container' is not a object!")
     }
     const map: ContainerMap = {}
     Object.keys(obj).forEach((key: string) => {
-        map[key.toLowerCase()] = parseContainer(key, obj[key])
+        map[key.toLowerCase()] = parseContainer(key, obj[key], currentHost)
     })
     return map
 }
 
-export function parseHost(obj: any): Host {
+export function parseHost(host: HostOptions): Host {
     if (
-        typeof obj["ip"] != "string" &&
-        typeof obj["netIp"] != "string" &&
-        typeof obj["localIp"] != "string"
+        typeof host["ip"] != "string" &&
+        typeof host["netIp"] != "string" &&
+        typeof host["localIp"] != "string"
     ) {
-        throw new FleetDataError("You need to specify minimum one of this host values: 'ip', 'localIp' or 'netIp'!")
+        throw new FleetValidateError("You need to specify minimum one of this host values: 'ip', 'localIp' or 'netIp'!")
     }
 
     return {
-        ip: obj["ip"] ?? undefined,
-        net: obj["net"] ? obj["net"].toLowerCase() : undefined,
-        netIp: obj["netIp"] ?? undefined,
-        localIp: obj["localIp"] ?? "127.0.0.1"
+        ...host,
+        ip: host["ip"] ?? undefined,
+        net: host["net"] ? host["net"].toLowerCase() : undefined,
+        netIp: host["netIp"] ?? undefined,
+        localIp: host["localIp"] ?? "127.0.0.1",
     }
 }
 
-export function parseHostMap(obj: any): HostMap {
+export function parseHostMap(hosts: HostMapOptions, currentHost: string): HostMap {
     if (
-        typeof obj != "object" ||
-        Array.isArray(obj) ||
-        obj == null
+        typeof hosts != "object" ||
+        Array.isArray(hosts) ||
+        hosts == null
     ) {
-        throw new FleetDataError("'hosts' is not a object!")
+        throw new FleetValidateError("'hosts' is not a object!")
     }
     const map: HostMap = {}
-    Object.keys(obj).forEach((key: string) => {
-        map[key.toLowerCase()] = parseHost(obj[key])
+    Object.keys(hosts).forEach((key: string) => {
+        map[key.toLowerCase()] = parseHost(hosts[key])
     })
-    if (!map["local"]) {
-        map["local"] = parseHost({
-            localIp: "127.0.0.1",
-        })
+    if (!map[currentHost]) {
+        const currentHostData = hosts[currentHost] ?? {}
+        map[currentHost] = {
+            ip: currentHostData["ip"] ?? undefined,
+            net: currentHostData["net"] ? currentHostData["net"].toLowerCase() : undefined,
+            netIp: currentHostData["netIp"] ?? undefined,
+            localIp: currentHostData["localIp"] ?? "127.0.0.1",
+            connection: {
+                protocol: undefined,
+                socketPath: "/var/run/docker.sock"
+            }
+        }
     }
     return map
 }
@@ -184,80 +263,227 @@ export function findRoute(fromHostName: string, targetHostName: string, hosts: H
     return null
 }
 
-export function parseHostRoutes(obj: HostMap): HostRoutes {
+export function parseHostRoutes(hosts: HostMap): HostRoutes {
     const routes: HostRoutes = {}
-    Object.keys(obj).forEach((hostName: string) => {
+    Object.keys(hosts).forEach((hostName: string) => {
         routes[hostName] = {}
-        Object.keys(obj).forEach(hostName2 => {
-            if (hostName == hostName2) {
-                return
-            }
-            routes[hostName][hostName2] = findRoute(hostName, hostName2, obj)
+        Object.keys(hosts).forEach((hostName2: string) => {
+            routes[hostName][hostName2] = findRoute(hostName, hostName2, hosts)
         })
     })
     return routes
 }
 
-export function parseFleetData(obj: any): FleetData {
-    const defaultHost = typeof obj["defaultHost"] == "string" ? obj["defaultHost"] : "local"
-    const data: FleetData = {
-        defaultHost: defaultHost,
-        hosts: parseHostMap(obj["hosts"] ?? {}),
-        container: parseContainerMap(obj["container"]),
-        unUsedHosts: [],
-        hostNetworks: {},
-        noNetworkHosts: [],
-        containerNetworks: {},
-        routes: {},
+export function validateFleetSettings(
+    obj: any,
+    currentHost?: string,
+    namePrefix?: string
+): FleetSettings {
+    if (typeof currentHost != "string") {
+        currentHost = obj["currentHost"]
     }
-    const containerNames = Object.keys(data.container)
-    let hostNames = Object.keys(data.hosts)
-    data.unUsedHosts = [...hostNames]
-    if (containerNames.length == 0) {
-        throw new FleetDataError("You need to specify at least one container!")
+    if (typeof currentHost != "string") {
+        currentHost = "local"
     }
+    if (typeof namePrefix != "string") {
+        namePrefix = obj["namePrefix"]
+    }
+    if (typeof namePrefix != "string") {
+        namePrefix = "ff_"
+    }
+    currentHost = currentHost.toLowerCase()
+    return {
+        currentHost: currentHost,
+        namePrefix: namePrefix,
+        hosts: parseHostMap(obj["hosts"] ?? {}, currentHost),
+        container: parseContainerMap(obj["container"], currentHost)
+    }
+}
 
-    //start ostNetworks
+export function filterPlannedContainer(plan: FleetPlan): void {
+    Object.keys(plan.container).forEach((containerName: string) => {
+        if (plan.container[containerName].enabled) {
+            plan.plannedContainer.push(containerName)
+        } else {
+            plan.unusedContainer.push(containerName)
+        }
+    })
+}
+
+export function filterUsedHosts(plan: FleetPlan): void {
+    plan.unusedHosts = Object.keys(plan.hosts)
+    plan.unusedHosts = plan.unusedHosts.filter(
+        (host) => host != plan.currentHost
+    )
+    plan.usedHosts.push(plan.currentHost)
+
+    plan.plannedContainer.forEach((containerName: string) => {
+        const container = plan.container[containerName]
+        if (plan.unusedHosts.includes(container.host)) {
+            plan.unusedHosts = plan.unusedHosts.filter(
+                (host) => host != container.host
+            )
+            plan.usedHosts.push(container.host)
+        }
+    })
+}
+
+export function setHostNetworks(plan: FleetPlan): void {
+    const hostNames: string[] = Object.keys(plan.hosts)
     for (let index = 0; index < hostNames.length; index++) {
         const hostName = hostNames[index]
-        const net = data.hosts[hostName].net
+        const net = plan.hosts[hostName].net
         if (typeof net == "undefined") {
-            data.noNetworkHosts.push(hostName)
+            plan.noNetworkHosts.push(hostName)
         } else {
-            if (!data.hostNetworks[net]) {
-                data.hostNetworks[net] = []
+            if (!plan.hostNetworks[net]) {
+                plan.hostNetworks[net] = []
             }
-            data.hostNetworks[net].push(hostName)
+            plan.hostNetworks[net].push(hostName)
         }
     }
-    //end
-    //start unUsedHosts
-    for (let index = 0; index < containerNames.length; index++) {
-        const containerName = containerNames[index]
-        const containerHostName = data.container[containerName].host = typeof data.container[containerName].host == "string" ? data.container[containerName].host : data.defaultHost
-        const containerHost = data.hosts[containerHostName]
-        if (!hostNames.includes(containerHostName)) {
-            throw new FleetDataError("The host '" + containerHost + "' for the container '" + containerName + "' is not specified!")
+}
+
+export function setContainerNetworks(plan: FleetPlan): void {
+    for (let index = 0; index < plan.plannedContainer.length; index++) {
+        const containerName = plan.plannedContainer[index]
+        const containerHostName = plan.container[containerName].host =
+            typeof plan.container[containerName].host == "string" ?
+                plan.container[containerName].host :
+                plan.currentHost
+        if (typeof plan.hosts[containerHostName] != "object") {
+            throw new FleetValidateError("Hostname '" + containerHostName + "' for container '" + containerName + "' is not defined!")
         }
-        data.unUsedHosts = data.unUsedHosts.filter((h) => h != containerHostName)
+        if (!plan.containerNetworks[containerHostName]) {
+            plan.containerNetworks[containerHostName] = []
+        }
+        plan.containerNetworks[containerHostName].push(containerName)
     }
-    data.unUsedHosts.forEach((hostName) => delete data.hosts[hostName])
-    data.unUsedHosts = data.unUsedHosts.filter((h) => h != defaultHost)
-    hostNames = Object.keys(data.hosts)
-    //end
-    //start ontainerNetworks
-    for (let index = 0; index < containerNames.length; index++) {
-        const containerName = containerNames[index]
-        const containerHostName = data.container[containerName].host = typeof data.container[containerName].host == "string" ? data.container[containerName].host : data.defaultHost
-        if (typeof data.hosts[containerHostName] != "object") {
-            throw new FleetDataError("Hostname '" + containerHostName + "' for container '" + containerName + "' is not defined!")
+}
+
+export function hostContainer(plan: FleetPlan): void {
+    for (let index = 0; index < plan.plannedContainer.length; index++) {
+        const containerName = plan.plannedContainer[index]
+        const hostName = plan.container[containerName].host
+        if (!plan.hostContainer[hostName]) {
+            plan.hostContainer[hostName] = []
         }
-        if (!data.containerNetworks[containerHostName]) {
-            data.containerNetworks[containerHostName] = []
-        }
-        data.containerNetworks[containerHostName].push(containerName)
+        plan.hostContainer[hostName].push(containerName)
     }
-    //end
-    data.routes = parseHostRoutes(data.hosts)
-    return data
+}
+
+export function createTaskRecursive(
+    plan: FleetPlan,
+    containerName: string,
+    tasks: TaskMap
+): ContainerTask {
+    if (Object.keys(tasks).includes(containerName)) {
+        return
+    }
+    const container = plan.container[containerName]
+    const task: ContainerTask = {
+        name: containerName,
+        tasks: []
+    }
+    tasks[containerName] = task
+    if (typeof container.after == "string") {
+        const afterContainer = plan.container[container.after]
+        if (!afterContainer) {
+            throw new FleetValidateError("The after container of '" + containerName + "' with the name '" + container.after + "' not exists!")
+        } else if (container.host != afterContainer.host) {
+            throw new FleetValidateError("The after container of '" + containerName + "' with the name '" + container.after + "' is not on the same host!")
+        }
+        const task2 = createTaskRecursive(
+            plan,
+            container.after,
+            tasks
+        )
+        if (!task2.tasks) {
+            task2.tasks = []
+        }
+        task2.tasks.push(task)
+    } else {
+        plan.tasks[container.host].push(task)
+    }
+    return task
+}
+
+export function listTasks(plan: FleetPlan): void {
+    const data: TaskMap = {}
+    plan.plannedContainer.forEach(
+        (containerName: string) => createTaskRecursive(
+            plan,
+            containerName,
+            data
+        )
+    )
+}
+
+export function setDockerHostNetworks(plan: FleetPlan): void {
+    plan.plannedContainer.forEach(
+        (containerName: string) => {
+            const container = plan.container[containerName]
+            if (!plan.dockerHostNetworks[container.host]) {
+                plan.dockerHostNetworks[container.host] = container.networks
+            } else {
+                plan.dockerHostNetworks[container.host] = [
+                    ...plan.dockerHostNetworks[container.host],
+                    ...container.networks
+                ]
+            }
+        }
+    )
+}
+
+export function getImageName(container: Container): string {
+    return container.image + (container.tag ? ":" + container.tag : "")
+}
+
+export function getHostImages(plan: FleetPlan): void {
+    plan.plannedContainer.forEach(
+        (containerName: string) => {
+            const container = plan.container[containerName]
+            if (!plan.hostImages) {
+                plan.hostImages[container.host] = []
+            }
+            const imageName = getImageName(container)
+
+            if (!plan.hostImages[container.host]) {
+                plan.hostImages[container.host] = []
+            }
+
+            if (!plan.hostImages[container.host].includes(imageName)) {
+                plan.hostImages[container.host].push(imageName)
+            }
+        }
+    )
+}
+
+export function parseFleetPlan(
+    settings: FleetSettings
+): FleetPlan {
+    const plan: FleetPlan = {
+        ...settings,
+        plannedContainer: [],
+        unusedContainer: [],
+        usedHosts: [],
+        unusedHosts: [],
+        noNetworkHosts: [],
+        hostNetworks: {},
+        containerNetworks: {},
+        routes: {},
+        hostContainer: {},
+        tasks: {},
+        dockerHostNetworks: {},
+        hostImages: {}
+    }
+
+    filterPlannedContainer(plan)
+    filterUsedHosts(plan)
+    setHostNetworks(plan)
+    plan.routes = parseHostRoutes(plan.hosts)
+    hostContainer(plan)
+    setDockerHostNetworks(plan)
+    getHostImages(plan)
+    return plan
 }

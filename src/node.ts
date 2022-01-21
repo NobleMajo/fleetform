@@ -2,9 +2,10 @@
 import { fork, ForkOptions } from "child_process"
 import process = require("process")
 import { formatPath, getFileType } from "./files"
-import { debugValue, LogType, printLogVarStream, VarStream } from "./varstream"
+import { debugValue, LogType, printLogVarStream, VarInputStream, VarStream } from "./varstream"
 import * as fs from "fs"
 import { defaultCmdTimeout, shell, ShellOptions, ShellTimeoutError } from "./shell"
+import { POINT_CONVERSION_COMPRESSED } from "constants"
 
 export interface NodeOptions extends ForkOptions {
     pipeEnv?: boolean,
@@ -25,7 +26,7 @@ export function node(
     script: string,
     args: string[],
     options?: NodeOptions
-): VarStream<LogType> {
+): VarInputStream<LogType<Buffer>> {
     const settings: NodeSettings = {
         ...defaultNodeSettings,
         ...options,
@@ -38,7 +39,7 @@ export function node(
         }
     }
 
-    const varStream = new VarStream<LogType>()
+    const varStream = new VarStream<LogType<Buffer>>()
     const task = fork(
         script,
         args,
@@ -57,7 +58,7 @@ export function node(
                 if (timeout) {
                     clearTimeout(timeout)
                 }
-                varStream.error(new ShellTimeoutError("Timeout for command 'node " + script + "' ('" + settings.timeoutMillis + "'ms)!"))
+                varStream.end(new ShellTimeoutError("Timeout for command 'node " + script + "' ('" + settings.timeoutMillis + "'ms)!"))
             },
             settings.timeoutMillis
         )
@@ -65,32 +66,22 @@ export function node(
     if (task.stdout) {
         task.stdout.on(
             'data',
-            (data: string) => {
-                data = "" + data
-                if (data.endsWith("\n")) {
-                    data = data.slice(0, -1)
+            (data: Buffer | string) => {
+                if (!(data instanceof Buffer)) {
+                    data = Buffer.from(data)
                 }
-                data
-                    .split("\n")
-                    .forEach(
-                        (line: string) => varStream.write([false, line])
-                    )
+                varStream.write([false, data])
             }
         )
     }
     if (task.stderr) {
         task.stderr.on(
             'data',
-            (data: string) => {
-                data = "" + data
-                if (data.endsWith("\n")) {
-                    data = data.slice(0, -1)
+            (data: Buffer | string) => {
+                if (!(data instanceof Buffer)) {
+                    data = Buffer.from(data)
                 }
-                data
-                    .split("\n")
-                    .forEach(
-                        (line: string) => varStream.write([true, line])
-                    )
+                varStream.write([false, data])
             }
         )
     }
@@ -103,7 +94,7 @@ export function node(
             if (timeout) {
                 clearTimeout(timeout)
             }
-            varStream.error(err)
+            varStream.end(err)
         }
     )
     task.on(
@@ -115,7 +106,7 @@ export function node(
             if (timeout) {
                 clearTimeout(timeout)
             }
-            varStream.close({
+            varStream.end(undefined, {
                 code: code
             })
         }
@@ -228,7 +219,7 @@ export const defaultCompileSettings: CompileSettings = {
 
 export function tsc(
     options: CompileOptions,
-): VarStream<LogType> {
+): VarInputStream<LogType<Buffer>> {
     const settings: CompileSettings = {
         ...defaultCompileSettings,
         ...options
@@ -390,7 +381,7 @@ export function tsnode(
     script: string,
     args: string[],
     options?: TsNodeOptions
-): VarStream<LogType> {
+): VarInputStream<LogType<Buffer>> {
     const settings: TsNodeSettings = {
         ...defaultTsNodeSettings,
         ...options,
@@ -487,32 +478,60 @@ export async function importModule(
         }
         const packageData = require(modulePath + "/" + settings.packageJsonName)
         let del: () => Promise<void> | undefined
-        if (
-            settings.compileTs &&
-            await getFileType(modulePath + "/" + settings.tsConfigName) == "FILE"
-        ) {
-            const paths = await tsc({
-                ...options,
-                project: modulePath + "/" + settings.tsConfigName,
-            }).map((log) => {
-                return log[0] == false &&
-                    log[1].startsWith("TSFILE: ") &&
-                    log[1].endsWith(settings.jsSuffix) ?
-                    log[1].substring(8) :
-                    undefined
-            }).toPromise()
-            if (settings.deleteCompiledFiles) {
-                del = () => Promise.all(
-                    paths.map((path) => new Promise<void>(
-                        (res, rej) => fs.rm(
+        try {
+            if (
+                settings.compileTs &&
+                await getFileType(modulePath + "/" + settings.tsConfigName) == "FILE"
+            ) {
+                let errorLines: string = ""
+                const paths = await tsc({
+                    ...options,
+                    project: modulePath + "/" + settings.tsConfigName,
+                    listEmittedFiles: true,
+                })
+                    .spread((log) => {
+                        const line = "" + log[1]
+                        return line.split("\n").map((v) => {
+                            while (v.startsWith(" ")) {
+                                v = v.substring(1)
+                            }
+                            while (v.endsWith(" ")) {
+                                v = v.slice(0, -1)
+                            }
+                            return v.length == 0 ? undefined : v
+                        })
+                    })
+                    .map((line: string) => {
+                        if (
+                            line.startsWith("TSFILE: ") &&
+                            line.endsWith(settings.jsSuffix)
+                        ) {
+                            return line.substring(8)
+                        } else if (line.includes(" error ")) {
+                            errorLines += "\n" + line
+                        }
+                        return undefined
+                    })
+                    .bufferValues()
+
+                if (settings.deleteCompiledFiles) {
+                    del = () => Promise.all(
+                        paths.map((path) => new Promise<void>((res, rej) => fs.rm(
                             path,
                             (err) => err ? rej(err) : res()
+                        ))
                         )
-                    ))
-                ) as any
+                    ) as any
+                }
+
+                if (paths.length == 0) {
+                    if (errorLines.length > 0) {
+                        throw new Error("TypeScript Type Errors:" + errorLines)
+                    } else {
+                        throw new Error("Unknown TypeScript Compile Error!")
+                    }
+                }
             }
-        }
-        try {
             return require(formatPath(packageData.main, modulePath))
         } finally {
             if (del) {
@@ -529,35 +548,62 @@ export async function importModule(
             modulePath = modulePath.slice(0, -settings.jsSuffix.length)
         }
         let del: () => Promise<void> | undefined
-        if (settings.compileTs && await getFileType(modulePath + settings.tsSuffix) == "FILE") {
-            const paths = await tsc({
-                ...options,
-                inFile: modulePath + settings.tsSuffix,
-            }).map(
-                (log) => {
-                    return log[0] == false &&
-                        log[1].startsWith("/") &&
-                        log[1].endsWith(settings.jsSuffix) ?
-                        log[1] :
-                        undefined
-                }
-            ).toPromise()
-            if (settings.deleteCompiledFiles) {
-                del = () => Promise.all(
-                    paths.map((path) => new Promise<void>(
-                        (res, rej) => fs.rm(
-                            path,
-                            (err) => err ? rej(err) : res()
-                        )
-                    ))
-                ) as any
-            }
-        }
-        if (await getFileType(modulePath + settings.jsSuffix) != "FILE") {
-            throw new Error("File '" + modulePath + settings.jsSuffix + "' not found!")
-        }
         try {
-            return formatPath(modulePath + settings.jsSuffix)
+            if (settings.compileTs && await getFileType(modulePath + settings.tsSuffix) == "FILE") {
+                let errorLines: string = ""
+                const paths = await tsc({
+                    ...options,
+                    inFile: modulePath + settings.tsSuffix,
+                    listEmittedFiles: true,
+                })
+                    .spread((log) => {
+                        const line = "" + log[1]
+                        return line.split("\n").map((v) => {
+                            while (v.startsWith(" ")) {
+                                v = v.substring(1)
+                            }
+                            while (v.endsWith(" ")) {
+                                v = v.slice(0, -1)
+                            }
+                            return v.length == 0 ? undefined : v
+                        })
+                    })
+                    .map((line: string) => {
+                        if (
+                            line.startsWith("TSFILE: ") &&
+                            line.endsWith(settings.jsSuffix)
+                        ) {
+                            return line.substring(8)
+                        } else if (line.includes(" error ")) {
+                            errorLines += "\n" + line
+                        }
+                        return undefined
+                    })
+                    .bufferValues()
+
+                if (settings.deleteCompiledFiles) {
+                    del = () => Promise.all(
+                        paths.map((path) => new Promise<void>(
+                            (res, rej) => fs.rm(
+                                path,
+                                (err) => err ? rej(err) : res()
+                            )
+                        ))
+                    ) as any
+                }
+
+                if (paths.length == 0) {
+                    if (errorLines.length > 0) {
+                        throw new Error("TypeScript Type Errors:" + errorLines)
+                    } else {
+                        throw new Error("Unknown TypeScript Compile Error!")
+                    }
+                }
+            }
+            if (await getFileType(modulePath + settings.jsSuffix) != "FILE") {
+                throw new Error("File '" + modulePath + settings.jsSuffix + "' not found!")
+            }
+            return require(formatPath(modulePath + settings.jsSuffix))
         } finally {
             if (del) {
                 await del()

@@ -1,5 +1,5 @@
 import { defaultCmdTimeout, shell } from "./shell"
-import { LogType, VarStream } from "./varstream"
+import { LogType, VarInputStream, VarStream } from "./varstream"
 
 export function gitClone(
     repoUrl: string,
@@ -8,7 +8,7 @@ export function gitClone(
     workDir: string = process.cwd(),
     cmdSuffix?: string | undefined,
     timeoutMillis: number = defaultCmdTimeout
-): VarStream<LogType> {
+): VarInputStream<LogType<Buffer>> {
     let cmd = `git clone ${repoUrl}`
     if (branch) {
         cmd += ` -b ${branch}`
@@ -34,7 +34,7 @@ export function gitCheckout(
     repoDir: string = process.cwd(),
     cmdSuffix?: string | undefined,
     timeoutMillis: number = defaultCmdTimeout
-): VarStream<LogType> {
+): VarInputStream<LogType<Buffer>> {
     let cmd = `git checkout ${branch}`
     if (create) {
         cmd += ` -b`
@@ -56,7 +56,7 @@ export function gitStash(
     repoDir: string = process.cwd(),
     cmdSuffix?: string | undefined,
     timeoutMillis: number = defaultCmdTimeout
-): VarStream<LogType> {
+): VarInputStream<LogType<Buffer>> {
     let cmd = `git stash`
     if (pop) {
         cmd += ` pop`
@@ -80,7 +80,7 @@ export function gitPush(
     tags: boolean = false,
     cmdSuffix?: string | undefined,
     timeoutMillis: number = defaultCmdTimeout
-): VarStream<LogType> {
+): VarInputStream<LogType<Buffer>> {
     let cmd = `git push`
     if (tags) {
         cmd += ` --tags`
@@ -110,7 +110,7 @@ export function gitPull(
     tags: boolean = false,
     cmdSuffix?: string | undefined,
     timeoutMillis: number = defaultCmdTimeout
-): VarStream<LogType> {
+): VarInputStream<LogType<Buffer>> {
     let cmd = `git pull`
     if (tags) {
         cmd += ` --tags`
@@ -140,7 +140,7 @@ export function gitFetch(
     tags: boolean = false,
     cmdSuffix?: string | undefined,
     timeoutMillis: number = defaultCmdTimeout
-): VarStream<LogType> {
+): VarInputStream<LogType<Buffer>> {
     let cmd = `git fetch`
     if (tags) {
         cmd += ` --tags`

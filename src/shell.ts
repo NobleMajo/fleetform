@@ -1,7 +1,6 @@
 import { spawn, SpawnOptionsWithoutStdio } from "child_process"
 import process = require("process")
-import { formatPath, getFileType } from "./files"
-import { debugValue, LogType, VarStream } from "./varstream"
+import { LogType, VarInputStream, VarStream } from "./varstream"
 import * as fs from "fs"
 
 export class ShellTimeoutError extends Error { }
@@ -42,7 +41,7 @@ export const defaultShellSettings: ShellSettings = {
 export function shell(
     cmd: string | string[],
     options?: ShellOptions
-): VarStream<LogType> {
+): VarInputStream<LogType<Buffer>> {
     const settings: ShellSettings = {
         ...defaultShellSettings,
         ...options,
@@ -77,7 +76,7 @@ export function shell(
     let args = [...cmd]
     args.shift()
     cmd = cmd[0]
-    const varStream = new VarStream<LogType>()
+    const varStream = new VarStream<LogType<Buffer>>()
     const task = spawn(cmd, args, options)
     let timeout: NodeJS.Timeout | undefined
     if (settings.timeoutMillis > 0) {
@@ -89,13 +88,29 @@ export function shell(
                 if (timeout) {
                     clearTimeout(timeout)
                 }
-                varStream.error(new ShellTimeoutError("Timeout for command '" + cmd + "' ('" + settings.timeoutMillis + "')!"))
+                varStream.end(new ShellTimeoutError("Timeout for command '" + cmd + "' ('" + settings.timeoutMillis + "')!"))
             },
             settings.timeoutMillis
         )
     }
-    task.stdout.on('data', (data) => varStream.write([false, data]))
-    task.stderr.on('data', (data) => varStream.write([true, data]))
+    task.stdout.on(
+        'data',
+        (data) => {
+            if (!(data instanceof Buffer)) {
+                data = Buffer.from(data)
+            }
+            varStream.write([false, data])
+        }
+    )
+    task.stderr.on(
+        'data',
+        (data) => {
+            if (!(data instanceof Buffer)) {
+                data = Buffer.from(data)
+            }
+            varStream.write([true, data])
+        }
+    )
     task.on("error", (err) => {
         if (task.stdin) {
             task.stdin.end()
@@ -106,7 +121,7 @@ export function shell(
         if (timeout) {
             clearTimeout(timeout)
         }
-        varStream.error(err)
+        varStream.end(err)
     })
     task.on('close', (code) => {
         if (task.stdin) {
@@ -118,10 +133,10 @@ export function shell(
         if (timeout) {
             clearTimeout(timeout)
         }
-        varStream.close({
+        varStream.end(undefined, {
             code: code
         })
     }
     )
-    return varStream
+    return varStream.getInputVarStream()
 }

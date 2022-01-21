@@ -1,7 +1,7 @@
 import * as fs from "fs"
 import * as path from "path"
-import { JsonType } from "./json"
-import { VarStream } from "./varstream"
+import { JsonType } from "./JSON"
+import { VarInputStream, VarStream } from "./varstream"
 
 export function formatPath(filePath: string, cwd: string = process.cwd()): string {
     filePath = filePath.split("\\").join("/")
@@ -95,7 +95,7 @@ export function writeJson(filePath: string, data: JsonType, pretty: boolean = tr
     ))
 }
 
-export async function watchChanges(filePath: string): Promise<VarStream<string>> {
+export async function watchChanges(filePath: string): Promise<VarInputStream<string>> {
     const type = await getFileType(filePath)
     if (type == "NONE") {
         throw new Error("Can't watch something that not exists!")
@@ -111,10 +111,10 @@ export async function watchChanges(filePath: string): Promise<VarStream<string>>
             type: type
         })
     )
-    watcher.on("error", (err: Error | any) => varstream.error(err))
-    watcher.on("close", () => varstream.close())
-    varstream.onClose = () => watcher.close()
-    return varstream
+    watcher.on("error", (err: Error | any) => varstream.end(err))
+    watcher.on("close", () => varstream.end())
+    varstream.then(() => watcher.close())
+    return varstream.getInputVarStream()
 }
 
 //     langs: html, css, java, javascript, php, c, sql(mysql/mariadb), 
