@@ -1,18 +1,77 @@
-import { CmdResult, Flag, CmdDefinition } from "cmdy"
-import { DockerExecuter } from "../docker"
-import { formatPath, getFileType, watchChanges, writeJson } from "../files"
-import { connectAllDockerHosts, parseFleetPlan, validateFleetSettings } from "../fleetformFunc"
-import { importModule } from "../node"
-import { hostname } from "os"
-import { FleetSettings } from "src/fleetformTypes"
-import { createNetworks, pullNeededImages, removeContainer, removeNetworks, runAllContainer } from "src/dockerFunc"
+import { CmdDefinition, Flag } from "cmdy"
+import { DockerExecuter } from "../docker/DockerExecuter"
+import { formatPath, writeJson } from "../lib/files"
+import { connectAllDockerHosts, parseFleetPlan, validateFleetSettings } from "../fleetform/fleetformFunc"
+import { importModule } from "../lib/node"
+import { FleetSettings } from "../fleetform/fleetformTypes"
+import { removeContainer, removeNetworks } from "../docker/dockerFunc"
 
+export const file: Flag = {
+    name: "file",
+    shorthand: "f",
+    description: "The path to a file or a folder with a fleet.json, js or ts file!",
+    types: ["string"],
+}
+
+export const ignoreTypescript: Flag = {
+    name: "ignoreTs",
+    alias: ["ignoreTypescript"],
+    description: "Don't compile typescript files/projects if found at target file/folder.",
+}
+
+export const ignoreJson: Flag = {
+    name: "ignoreJson",
+    description: "Don't parse json files if found at target file.",
+}
+
+export const printData: Flag = {
+    name: "printData",
+    shorthand: "p",
+    description: "Print parsed fleetdata to console.",
+}
+
+export const namePrefix: Flag = {
+    name: "namePrefix",
+    alias: ["pre", "prefix"],
+    description: "Set the container and network prefix (default: 'ff-').",
+    types: ["string"],
+    default: "ff_"
+}
+
+export const currentHost: Flag = {
+    name: "currentHost",
+    shorthand: "c",
+    description: "Set the current host name (default: 'local').",
+    types: ["string"],
+}
+
+export const timeout: Flag = {
+    name: "timeout",
+    shorthand: "t",
+    description: "Set timeout for apply the contianer",
+    types: ["number"],
+}
+
+export const outFile: Flag = {
+    name: "outFile",
+    shorthand: "o",
+    description: "Export the parsed fleetform data json into a file.",
+    types: ["string"],
+}
 
 export const destoryDefinition: CmdDefinition = {
     name: "destory",
-    alias: ["disassemble"],
-    description: "Destory the applied infrasturcture.",
+    alias: ["d", "de", "des", "dest", "desto", "destor", "disassemble"],
+    description: "Destorys the whole container infrasturcture.",
     flags: [
+        file,
+        ignoreTypescript,
+        ignoreJson,
+        currentHost,
+        namePrefix,
+        timeout,
+        outFile,
+        printData,
     ],
     cmds: [
     ],
@@ -29,9 +88,6 @@ export const destoryDefinition: CmdDefinition = {
         const ignoreJson = cmd.flags.includes("ignorejson")
         const verbose = cmd.flags.includes("verbose")
         const printData = cmd.flags.includes("printdata")
-        const testConnection = cmd.flags.includes("testconnection")
-        const apply = cmd.flags.includes("apply")
-        const disassemble = cmd.flags.includes("disassemble")
         const namePrefix = cmd.valueFlags.nameprefix[0]
         const outFile = cmd.valueFlags.outfile[0]
         let currentHost = cmd.valueFlags.currenthost[0]
@@ -48,7 +104,6 @@ export const destoryDefinition: CmdDefinition = {
                 ignoreTypescript,
                 ignoreJson,
                 verbose,
-                testConnection,
                 flags: cmd.flags,
                 flagValues: cmd.valueFlags
             })
@@ -74,64 +129,42 @@ export const destoryDefinition: CmdDefinition = {
             )
             console.info("# OUTPUT FILE READY #")
         }
-        const connections = await connectAllDockerHosts(plan, testConnection)
-        if (testConnection) {
-            console.info("# CONNECTION INFO #")
-            Object.keys(connections).forEach((host) => {
-                if (!connections[host].err) {
-                    console.info(" + '" + hostname + "' connected!")
-                }
-            })
-            Object.keys(connections).forEach((host) => {
-                if (connections[host].err) {
-                    console.error(" - '" + hostname + "': ", connections[host].err)
-                }
-            })
-        } else if (!disassemble && !apply) {
-            if (cmd.flags.length == 0) {
-                console.error("Use '-h' for more infos and '-a' to apply a plan!'")
-            }
-            return
-        }
+        const connections = await connectAllDockerHosts(plan, false)
         const usedHosts = Object.keys(plan.hostContainer)
         for (let index = 0; index < usedHosts.length; index++) {
             const hostName = usedHosts[index]
             const executer: DockerExecuter = connections[hostName].executer
-    
-            console.info("# REMOVE OLD #")
+
+            console.info("# REMOVE NETWORKS AND CONTAINER #")
             await Promise.all([
-                removeNetworks(
-                    executer,
-                    plan,
-                ),
                 removeContainer(
                     executer,
-                    plan
+                    plan.namePrefix,
+                    plan.plannedContainer,
                 )
+                    .forEach((container) => {
+                        if (container[0]) {
+                            console.log(" - '" + container[1] + "'-container deleted!")
+                        } else {
+                            console.log(" - Delete '" + container[1] + "'-container...")
+                        }
+                    })
+                    .toPromise(),
+                removeNetworks(
+                    executer,
+                    plan.namePrefix,
+                )
+                    .forEach((network) => {
+                        if (network[0]) {
+                            console.log(" - '" + network[1] + "'-network deleted!")
+                        } else {
+                            console.log(" - Delete '" + network[1] + "' network...")
+                        }
+                    })
+                    .toPromise()
             ])
-    
-            if (apply) {
-                console.info("# APPLY NETWORKS #")
-                await createNetworks(
-                    executer,
-                    plan.dockerHostNetworks[hostName],
-                    plan.namePrefix
-                )
-    
-                console.info("# PULL IMAGES #")
-                await pullNeededImages(
-                    executer,
-                    plan
-                )
-    
-                console.info("# APPLY CONTAINER #")
-                await runAllContainer(
-                    executer,
-                    plan
-                )
-            }
         }
-        console.log("finished!")
+        console.log("Fleet is disassembled!")
     }
 }
 

@@ -1,6 +1,48 @@
-import { HostOptions, HostMapOptions, ContainerOptions, ContainerMapOptions } from "./fleetformOptions";
+import { DockerConnectionOptions } from "../docker/dockerTypes";
 
 export class FleetValidateError extends Error {
+}
+
+export interface FleetOptions {
+    defaultHost?: string,
+    hosts: HostMapOptions,
+    container: ContainerMapOptions,
+}
+
+export interface ContainerOptions {
+    enabled?: boolean,
+    image: string,
+    tag?: string,
+    host?: string,
+    publish?: {
+        [key: string]: number,
+    },
+    expose?: string[],
+    envs?: {
+        [key: string]: string,
+    },
+    volumes?: {
+        [key: string]: string,
+    },
+    networks?: string[],
+    args?: string[],
+    after?: string | undefined
+}
+
+export interface ContainerMapOptions {
+    [key: string]: ContainerOptions,
+}
+
+export interface HostOptions {
+    ip?: string,
+    net?: string,
+    netIp?: string,
+    localIp?: string,
+    connection: DockerConnectionOptions
+}
+
+export interface HostMapOptions {
+    [key: string]: HostOptions,
 }
 
 export interface Container extends ContainerOptions {
@@ -92,11 +134,11 @@ export interface FleetPlan extends FleetSettings {
     usedHosts: string[],
     unusedHosts: string[],
     noNetworkHosts: string[],
+    neededImages: string[],
     hostNetworks: HostNetworks,
     containerNetworks: ContainerNetworks,
     routes: HostRoutes,
     hostContainer: HostContainer,
-    tasks: HostTasks,
     dockerHostNetworks: DockerHostNetworks,
     hostImages: HostImages
 }

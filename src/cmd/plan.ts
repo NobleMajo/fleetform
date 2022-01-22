@@ -1,18 +1,74 @@
-import { CmdResult, Flag, CmdDefinition } from "cmdy"
-import { DockerExecuter } from "../docker"
-import { formatPath, getFileType, watchChanges, writeJson } from "../files"
-import { connectAllDockerHosts, parseFleetPlan, validateFleetSettings } from "../fleetformFunc"
-import { importModule } from "../node"
-import { hostname } from "os"
-import { FleetSettings } from "src/fleetformTypes"
-import { createNetworks, pullNeededImages, removeContainer, removeNetworks, runAllContainer } from "src/dockerFunc"
+import { Flag, CmdDefinition } from "cmdy"
+import { formatPath, writeJson } from "../lib/files"
+import { connectAllDockerHosts, parseFleetPlan, validateFleetSettings } from "../fleetform/fleetformFunc"
+import { importModule } from "../lib/node"
+import { FleetSettings } from "../fleetform/fleetformTypes"
 
+export const file: Flag = {
+    name: "file",
+    shorthand: "f",
+    description: "The path to a file or a folder with a fleet.json, js or ts file!",
+    types: ["string"],
+}
+
+export const ignoreTypescript: Flag = {
+    name: "ignoreTs",
+    alias: ["ignoreTypescript"],
+    description: "Don't compile typescript files/projects if found at target file/folder.",
+}
+
+export const ignoreJson: Flag = {
+    name: "ignoreJson",
+    description: "Don't parse json files if found at target file.",
+}
+
+export const namePrefix: Flag = {
+    name: "namePrefix",
+    alias: ["pre", "prefix"],
+    description: "Set the container and network prefix (default: 'ff-').",
+    types: ["string"],
+    default: "ff_"
+}
+
+export const currentHost: Flag = {
+    name: "currentHost",
+    shorthand: "c",
+    description: "Set the current host name (default: 'local').",
+    types: ["string"],
+}
+
+export const watch: Flag = {
+    name: "watch",
+    shorthand: "w",
+    description: "Starts fleetform in watch mode.",
+}
+
+export const outFile: Flag = {
+    name: "outFile",
+    shorthand: "o",
+    description: "Export the parsed fleetform data json into a file.",
+    types: ["string"],
+}
+
+export const testConnection: Flag = {
+    name: "testConnection",
+    alias: ["con"],
+    description: "Test the connection to all hosts and show errors.",
+}
 
 export const planDefinition: CmdDefinition = {
     name: "plan",
-    alias: ["test", "validate"],
+    alias: ["p", "pl", "pla", "t", "te", "tes", "test", "valid", "validate"],
     description: "Load and validate the fleet-config and creates and print a fleet-plan.",
     flags: [
+        file,
+        ignoreTypescript,
+        ignoreJson,
+        currentHost,
+        namePrefix,
+        watch,
+        outFile,
+        testConnection,
     ],
     cmds: [
     ],
@@ -25,22 +81,15 @@ export const planDefinition: CmdDefinition = {
             file = cmd.valueFlags.file[0]
         }
         file = formatPath(file)
+        const verbose = cmd.flags.includes("verbose")
         const ignoreTypescript = cmd.flags.includes("ignorets")
         const ignoreJson = cmd.flags.includes("ignorejson")
-        const verbose = cmd.flags.includes("verbose")
-        const printData = cmd.flags.includes("printdata")
         const testConnection = cmd.flags.includes("testconnection")
-        const apply = cmd.flags.includes("apply")
-        const disassemble = cmd.flags.includes("disassemble")
         const namePrefix = cmd.valueFlags.nameprefix[0]
         const outFile = cmd.valueFlags.outfile[0]
         let currentHost = cmd.valueFlags.currenthost[0]
         if (typeof currentHost != "string") {
             currentHost = undefined
-        }
-        let timeout = Number(cmd.valueFlags.timeout[0])
-        if (timeout == NaN || typeof timeout != "number") {
-            timeout = -1
         }
         if (verbose) {
             console.info("# VERBOSE #", {
@@ -64,9 +113,6 @@ export const planDefinition: CmdDefinition = {
         const fleetSettings: FleetSettings = validateFleetSettings(data, currentHost, namePrefix)
         console.info("# FLEET CONFIG VALID #")
         const plan = parseFleetPlan(fleetSettings)
-        if (printData) {
-            console.info("# FLEET SETTINGS #", plan)
-        }
         if (outFile) {
             await writeJson(
                 formatPath(outFile),
@@ -74,64 +120,22 @@ export const planDefinition: CmdDefinition = {
             )
             console.info("# OUTPUT FILE READY #")
         }
-        const connections = await connectAllDockerHosts(plan, testConnection)
+        console.info("# FLEET SETTINGS #\n", plan)
+
         if (testConnection) {
-            console.info("# CONNECTION INFO #")
+            console.info("# TEST CONNECTION #")
+            const connections = await connectAllDockerHosts(plan, true)
             Object.keys(connections).forEach((host) => {
                 if (!connections[host].err) {
-                    console.info(" + '" + hostname + "' connected!")
+                    console.info(" + '" + host + "' connected!")
                 }
             })
             Object.keys(connections).forEach((host) => {
                 if (connections[host].err) {
-                    console.error(" - '" + hostname + "': ", connections[host].err)
+                    console.error(" - '" + host + "': ", connections[host].err)
                 }
             })
-        } else if (!disassemble && !apply) {
-            if (cmd.flags.length == 0) {
-                console.error("Use '-h' for more infos and '-a' to apply a plan!'")
-            }
-            return
         }
-        const usedHosts = Object.keys(plan.hostContainer)
-        for (let index = 0; index < usedHosts.length; index++) {
-            const hostName = usedHosts[index]
-            const executer: DockerExecuter = connections[hostName].executer
-    
-            console.info("# REMOVE OLD #")
-            await Promise.all([
-                removeNetworks(
-                    executer,
-                    plan,
-                ),
-                removeContainer(
-                    executer,
-                    plan
-                )
-            ])
-    
-            if (apply) {
-                console.info("# APPLY NETWORKS #")
-                await createNetworks(
-                    executer,
-                    plan.dockerHostNetworks[hostName],
-                    plan.namePrefix
-                )
-    
-                console.info("# PULL IMAGES #")
-                await pullNeededImages(
-                    executer,
-                    plan
-                )
-    
-                console.info("# APPLY CONTAINER #")
-                await runAllContainer(
-                    executer,
-                    plan
-                )
-            }
-        }
-        console.log("finished!")
     }
 }
 

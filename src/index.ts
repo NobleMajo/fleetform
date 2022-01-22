@@ -1,10 +1,7 @@
 import { parseCmd } from "cmdy"
-import root from "./cmd/oldBackup"
+import root from "./cmd/root"
 
-parseCmd({
-    cmd: root,
-    globalHelpMsg: "! Fleetform by HalsMaulMajo (supported by CoreUnit.NET) !",
-})
+parseCmd(root)
     .exe()
     .catch(
         (err: Error | any) => {

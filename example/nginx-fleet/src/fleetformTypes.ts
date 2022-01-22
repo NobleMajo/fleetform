@@ -1,12 +1,12 @@
-import { DockerConnectionOptions } from "./dockerOptions";
+import { DockerConnectionOptions } from "./dockerTypes";
 
-export interface FleetOptions {
+export interface FleetConfig {
     defaultHost?: string,
-    hosts: HostMapOptions,
-    container: ContainerMapOptions,
+    hosts: RawHostMap,
+    container: RawContainerMap,
 }
 
-export interface ContainerOptions {
+export interface RawContainer {
     enabled?: boolean,
     image: string,
     tag?: string,
@@ -23,14 +23,13 @@ export interface ContainerOptions {
     },
     networks?: string[],
     args?: string[],
-    after?: string | undefined
 }
 
-export interface ContainerMapOptions {
-    [key: string]: ContainerOptions,
+export interface RawContainerMap {
+    [key: string]: RawContainer,
 }
 
-export interface HostOptions {
+export interface RawHost {
     ip?: string,
     net?: string,
     netIp?: string,
@@ -38,6 +37,6 @@ export interface HostOptions {
     connection: DockerConnectionOptions
 }
 
-export interface HostMapOptions {
-    [key: string]: HostOptions,
+export interface RawHostMap {
+    [key: string]: RawHost,
 }

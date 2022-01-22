@@ -38,7 +38,7 @@ export type MapCallback<T, R> =
         value: T,
         meta: StreamDataMeta,
         stream: VarInputStream<T>
-    ) => R | undefined
+    ) => Promise<R> | R | undefined
 export type CloseCallback<T> =
     (
         meta: StreamCloseMeta,
@@ -46,13 +46,11 @@ export type CloseCallback<T> =
     ) => Promise<any> | any
 export type ErrorCallback<T> =
     (
-        err: Error | any,
         meta: StreamErrorMeta,
         stream: VarStream<T>
     ) => Promise<any> | any
 export type FinallyCallback<T> =
     (
-        err: Error | any | undefined,
         meta: StreamCloseMeta | StreamErrorMeta,
         stream: VarStream<T>
     ) => Promise<any> | any
@@ -328,9 +326,9 @@ export class VarStream<T> implements VarInputStream<T>, VarOutputStream<T>{
         if (!this.onClose) {
             this.onClose = []
         }
-        this.onClose.push((meta, stream) => finallyCallback(meta.err, meta as StreamCloseMeta, stream))
+        this.onClose.push((meta, stream) => finallyCallback(meta as StreamCloseMeta, stream))
         if (this.closeData) {
-            finallyCallback(this.closeData.err, this.closeData, this)
+            finallyCallback(this.closeData, this)
         }
         return this
     }
@@ -359,12 +357,12 @@ export class VarStream<T> implements VarInputStream<T>, VarOutputStream<T>{
         }
         this.onClose.push((meta, stream) => {
             if (meta.err) {
-                errorCallback(meta.err, meta as StreamErrorMeta, stream)
+                errorCallback(meta as StreamErrorMeta, stream)
             }
         })
         if (this.closeData) {
             if (this.closeData.err) {
-                errorCallback(this.closeData.err, this.closeData as StreamErrorMeta, this)
+                errorCallback(this.closeData as StreamErrorMeta, this)
             }
         }
         return this
@@ -376,9 +374,9 @@ export class VarStream<T> implements VarInputStream<T>, VarOutputStream<T>{
             this.forEach((value) => {
                 buf.push(value)
             })
-            this.finally((err) => {
-                if (err) {
-                    rej(err)
+            this.finally((meta) => {
+                if (meta.err) {
+                    rej(meta.err)
                     return
                 }
                 res(buf)
@@ -390,9 +388,9 @@ export class VarStream<T> implements VarInputStream<T>, VarOutputStream<T>{
         return new Promise<StreamDataMeta[]>((res, rej) => {
             const buf: StreamDataMeta[] = []
             this.forEach((value, meta) => buf.push(meta))
-            this.finally((err) => {
-                if (err) {
-                    rej(err)
+            this.finally((meta) => {
+                if (meta.err) {
+                    rej(meta.err)
                     return
                 }
                 res(buf)
@@ -404,9 +402,9 @@ export class VarStream<T> implements VarInputStream<T>, VarOutputStream<T>{
         return new Promise<[T, StreamDataMeta][]>((res, rej) => {
             const buf: [T, StreamDataMeta][] = []
             this.forEach((value, meta) => buf.push([value, meta]))
-            this.finally((err) => {
-                if (err) {
-                    rej(err)
+            this.finally((meta) => {
+                if (meta.err) {
+                    rej(meta.err)
                     return
                 }
                 res(buf)
@@ -453,14 +451,33 @@ export class VarStream<T> implements VarInputStream<T>, VarOutputStream<T>{
         callback: MapCallback<T, R>,
     ): VarStream<R> {
         const newStream = new VarStream<R>()
+        const promises: Promise<void>[] = []
         this.forEach((data, meta) => {
             const data2 = callback(data, meta, this)
             if (data2 != undefined) {
-                newStream.write(data2, meta)
+                if (
+                    typeof (data2 as any).then === 'function' &&
+                    typeof (data2 as any).catch === 'function'
+                ) {
+                    promises.push((async () => {
+                        newStream.write(
+                            await (data2 as Promise<R>),
+                            meta
+                        )
+                    })())
+                } else {
+                    newStream.write(data2 as R, meta)
+                }
             }
         })
-        this.then((meta) => newStream.end(undefined, meta))
-        this.catch((err, meta) => newStream.end(err, meta))
+        this.finally(
+            async (meta) => {
+                while (promises.length > 0) {
+                    await promises.shift()
+                }
+                newStream.end(meta.err, meta)
+            }
+        )
         return newStream
     }
 
@@ -759,7 +776,7 @@ export function printLogVarStream<T extends Stringlike>(
     console.debug(uuid + " Logs started!")
     return stream
         .forEach((log) => printLog(log, uuid))
-        .finally((m) => console.debug(uuid + " Finished!"))
+        .finally(() => console.debug(uuid + " Finished!"))
 }
 
 export function printLogPromise<T extends Stringlike>(

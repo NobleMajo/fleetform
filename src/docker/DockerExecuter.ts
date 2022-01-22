@@ -1,20 +1,7 @@
 import * as Dockerode from "dockerode"
-import {
-    ImageInfo,
-    ContainerInfo,
-    Image,
-    Container,
-    Volume,
-    VolumeInspectInfo,
-    ImageInspectInfo,
-    Network,
-    NetworkInfo,
-    NetworkInspectInfo
-} from "dockerode"
-import * as DockerModem from "docker-modem"
 import { Client } from "ssh2"
 import { Agent } from "http"
-import { defaultDockerExecutersSettings, DockerExecuterOptions, DockerExecuterSettings } from "./dockerOptions"
+import { defaultDockerExecutersSettings, DockerExecuterOptions, DockerExecuterSettings } from "./dockerTypes"
 
 export function sshAgent(opt: any, callback: (err?: Error | any) => void): any {
     const client = new Client()

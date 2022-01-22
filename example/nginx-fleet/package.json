@@ -1,0 +1,14 @@
+{
+  "name": "nginx-fleet",
+  "version": "1.0.0",
+  "description": "A nginx fleetform fleet plan",
+  "main": "dist/index.js",
+  "scripts": {},
+  "author": "CoreUnit.NET",
+  "license": "MIT",
+  "private": true,
+  "devDependencies": {
+    "@types/node": "^16.10.2",
+    "typescript": "^4.4.3"
+  }
+}

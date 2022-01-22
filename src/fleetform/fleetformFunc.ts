@@ -1,7 +1,19 @@
-import { Container, ContainerMap, ContainerTask, FleetPlan, FleetSettings, HostImages, FleetValidateError, Host, HostMap, HostRoutes, TaskMap } from "./fleetformTypes"
-import { DockerExecuterOptions } from "./dockerOptions"
-import { DockerExecuter } from "./docker"
-import { HostOptions, HostMapOptions } from "./fleetformOptions"
+import {
+    Container,
+    ContainerMap,
+    ContainerTask,
+    FleetPlan,
+    HostOptions,
+    HostMapOptions,
+    FleetSettings,
+    FleetValidateError,
+    Host,
+    HostMap, HostRoutes,
+    TaskMap
+} from
+    "./fleetformTypes"
+import { DockerExecuterOptions } from "../docker/dockerTypes"
+import { DockerExecuter } from "../docker/DockerExecuter"
 
 export interface ConnectionInfo {
     type: "error" | "success",
@@ -372,53 +384,6 @@ export function hostContainer(plan: FleetPlan): void {
     }
 }
 
-export function createTaskRecursive(
-    plan: FleetPlan,
-    containerName: string,
-    tasks: TaskMap
-): ContainerTask {
-    if (Object.keys(tasks).includes(containerName)) {
-        return
-    }
-    const container = plan.container[containerName]
-    const task: ContainerTask = {
-        name: containerName,
-        tasks: []
-    }
-    tasks[containerName] = task
-    if (typeof container.after == "string") {
-        const afterContainer = plan.container[container.after]
-        if (!afterContainer) {
-            throw new FleetValidateError("The after container of '" + containerName + "' with the name '" + container.after + "' not exists!")
-        } else if (container.host != afterContainer.host) {
-            throw new FleetValidateError("The after container of '" + containerName + "' with the name '" + container.after + "' is not on the same host!")
-        }
-        const task2 = createTaskRecursive(
-            plan,
-            container.after,
-            tasks
-        )
-        if (!task2.tasks) {
-            task2.tasks = []
-        }
-        task2.tasks.push(task)
-    } else {
-        plan.tasks[container.host].push(task)
-    }
-    return task
-}
-
-export function listTasks(plan: FleetPlan): void {
-    const data: TaskMap = {}
-    plan.plannedContainer.forEach(
-        (containerName: string) => createTaskRecursive(
-            plan,
-            containerName,
-            data
-        )
-    )
-}
-
 export function setDockerHostNetworks(plan: FleetPlan): void {
     plan.plannedContainer.forEach(
         (containerName: string) => {
@@ -426,10 +391,13 @@ export function setDockerHostNetworks(plan: FleetPlan): void {
             if (!plan.dockerHostNetworks[container.host]) {
                 plan.dockerHostNetworks[container.host] = container.networks
             } else {
-                plan.dockerHostNetworks[container.host] = [
-                    ...plan.dockerHostNetworks[container.host],
-                    ...container.networks
-                ]
+                container.networks.forEach(
+                    (network: string) => {
+                        if (!container.networks.includes(network)) {
+                            plan.dockerHostNetworks[container.host].push(network)
+                        }
+                    }
+                )
             }
         }
     )
@@ -459,6 +427,15 @@ export function getHostImages(plan: FleetPlan): void {
     )
 }
 
+export function getNeededImages(plan: FleetPlan): void {
+    plan.neededImages = plan.plannedContainer.map(
+        (containerName) => {
+            const container = plan.container[containerName]
+            return container.image + ":" + container.tag
+        }
+    )
+}
+
 export function parseFleetPlan(
     settings: FleetSettings
 ): FleetPlan {
@@ -469,11 +446,11 @@ export function parseFleetPlan(
         usedHosts: [],
         unusedHosts: [],
         noNetworkHosts: [],
+        neededImages: [],
         hostNetworks: {},
         containerNetworks: {},
         routes: {},
         hostContainer: {},
-        tasks: {},
         dockerHostNetworks: {},
         hostImages: {}
     }
@@ -485,5 +462,6 @@ export function parseFleetPlan(
     hostContainer(plan)
     setDockerHostNetworks(plan)
     getHostImages(plan)
+    getNeededImages(plan)
     return plan
 }

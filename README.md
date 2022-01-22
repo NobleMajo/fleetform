@@ -12,8 +12,6 @@ For example i you just want to test some container or run a single instance.
 
 **Attention**: Its currently just a WIP (Work in progress) but you can already use it. 
 
-# WIP
-
 ## Work
  - A docker like cli tool
  - Rich, help, verbose and debug flags
@@ -38,6 +36,15 @@ It first loads a json, javascript or typescript infrastructure file that already
 Then a plan will be created that describes conntection informations, container-host relations.
 
 Fleetform pulls needed images, stop all old containers and deploy the new plan.
+
+# getting started
+
+## install fleetform
+```sh
+
+```
+
+//TODO: WIP
 
 # Naming
 
