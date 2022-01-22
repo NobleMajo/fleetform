@@ -12,7 +12,7 @@ Sometimes there is the point that you just want to start and manage 2-3 containe
 
 For example i you just want to test some container or run a single instance.
 
-## Work
+# already working
  - A docker like cli tool
  - Rich, help, verbose and debug flags
  - "--file/-f" (default current working dir) defines the plan file / project dir
@@ -32,7 +32,7 @@ For example i you just want to test some container or run a single instance.
  - "--ignorets" ignore ts files or configs
  - "--ignorejson" ignore json files
 
-## Planned
+# work in progress
  - Multihost functionality (currently just localhost)
  - "--timeout/-t" flag to set the connection timeout
  - "--testconnection" flag to test the host connections
@@ -46,10 +46,6 @@ It first loads a json, javascript or typescript infrastructure file that already
 Then a plan will be created that describes conntection informations, container-host relations.
 
 Fleetform pulls needed images, stop all old containers and deploy the new plan.
-
-# work in progress
-
-# already working
 
 # getting started
 
