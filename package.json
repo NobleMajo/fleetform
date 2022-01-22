@@ -8,14 +8,17 @@
   "private": false,
   "tags": [
     "docker",
-    "terrafrom",
+    "container",
+    "iac",
+    "incrastructure",
     "fleetform",
     "typescript",
     "cli"
   ],
   "bin": {
-    "fleetform": "bin",
-    "ffdev": "bints.sh"
+    "fleetform": "node ./dist/index.js",
+    "ff": "node ./dist/index.js",
+    "ffdev": "./node_modules/.bin/ts-node ./src/index.ts"
   },
   "scripts": {
     "dev": "nodemon --ext '*.ts' -w ${PWD}/src -x 'npm run build; npm run start'",

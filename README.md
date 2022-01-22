@@ -41,10 +41,21 @@ Fleetform pulls needed images, stop all old containers and deploy the new plan.
 
 ## install fleetform
 ```sh
-
+git clone git@github.com:HalsMaulMajo/FleetForm.git
+cd ff
+npm i
+npm link
 ```
 
-//TODO: WIP
+## use fleetform (tsnode)
+```sh
+ffdev -h
+```
+
+## use fleetform (node)
+```sh
+fleetform -h
+```
 
 # Naming
 
