@@ -1,6 +1,6 @@
 {
   "name": "fleetform",
-  "version": "1.2.1",
+  "version": "1.2.6",
   "description": "A docker manager.",
   "main": "dist/index.js",
   "author": "HalsMaulMajo",
@@ -16,9 +16,8 @@
     "cli"
   ],
   "bin": {
-    "fleetform": "node ./dist/index.js",
-    "ff": "node ./dist/index.js",
-    "ffdev": "./node_modules/.bin/ts-node ./src/index.ts"
+    "ff": "./bin/ff",
+    "ffdev": "./bin/ffdev"
   },
   "scripts": {
     "dev": "nodemon --ext '*.ts' -w ${PWD}/src -x 'npm run build; npm run start'",

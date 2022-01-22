@@ -1,0 +1,21 @@
+#!/bin/bash
+
+CURRENT_SCRIPT=$(realpath $0)
+CURRENT_SCRIPT_DIR=$(dirname $CURRENT_SCRIPT)
+FLEETFORM_DIR="$CURRENT_SCRIPT_DIR/.."
+TSNODE_BIN="$FLEETFORM_DIR/node_modules/.bin/ts-node"
+INDEX_TS="$FLEETFORM_DIR/src/index.ts"
+
+#echo "----- ----- ----- ----- -----"
+#echo "FleetForm dev output:"
+#echo "CURRENT_SCRIPT: $CURRENT_SCRIPT"
+#echo "CURRENT_SCRIPT_DIR: $CURRENT_SCRIPT_DIR"
+#echo "FLEETFORM_DIR: $FLEETFORM_DIR"
+#echo "TSNODE_BIN: $TSNODE_BIN"
+#echo "INDEX_TS: $INDEX_TS"
+#echo "Start tsnode app..."
+#echo "----- ----- ----- ----- -----"
+
+$TSNODE_BIN \
+    $INDEX_TS \
+    $@

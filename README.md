@@ -39,22 +39,112 @@ Fleetform pulls needed images, stop all old containers and deploy the new plan.
 
 # getting started
 
+## requirements
+ - Linux based operation system
+ - Docker (Cli + Runtime) installed and started
+ - nodejs 16+ (and npm 8+) installed
+ - git
+
 ## install fleetform
+This creates a "fleetform" folder
 ```sh
-git clone git@github.com:HalsMaulMajo/FleetForm.git
-cd ff
-npm i
-npm link
+git clone git@github.com:HalsMaulMajo/FleetForm.git fleetform
+cd fleetform && npm i && npm i -g .
 ```
 
-## use fleetform (tsnode)
+## run fleetform (node)
+```sh
+ff -h
+```
+
+# development (tsnode)
+You can also run fleetform with tsnode
 ```sh
 ffdev -h
 ```
 
-## use fleetform (node)
+## uninstall fleetform
+You also need to delete the "fleetform" folder.
 ```sh
-fleetform -h
+npm un -g fleetform
+```
+
+# Cli Output
+
+## ff (base command)
+```sh
+# FLEETFORM #
+
+Usage: fleetform [OPTIONS] COMMAND
+
+Fleetform is a tool to deploy docker infrastructure on multiple hosts.
+
+Options:
+  -v, --verbose Show basic flag adn target informations.
+  -h, --help    Shows this help output
+
+Commands:
+apply   Applys the fleetplan container infrstructure.
+destory Destorys the whole container infrasturcture.
+plan    Load and validate the fleet-config and creates and print a fleet-plan.
+
+Details:
+You can use Fleetform to deploy a whole infrasturcture on multiple host/servers with one command.
+
+! Fleetform by HalsMaulMajo (supported by CoreUnit.NET) !
+```
+
+## ff apply -h
+```sh
+# APPLY #
+
+Usage: fleetform apply [OPTIONS]
+
+Applys the fleetplan container infrstructure.
+
+Options:
+  -v, --verbose              Show basic flag adn target informations.
+  -f, --file [string]        The path to a file or a folder with a fleet.json, js or ts file!
+      --ignorets             Don't compile typescript files/projects if found at target file/folder.
+      --ignorejson           Don't parse json files if found at target file.
+  -c, --currenthost [string] Set the current host name (default: 'local').
+      --nameprefix [string]  Set the container and network prefix (default: 'ff-').
+  -w, --watch                Starts fleetform in watch mode.
+  -t, --timeout [number]     Set timeout for apply the contianer
+  -o, --outfile [string]     Export the parsed fleetform data json into a file.
+  -p, --printdata            Print parsed fleetdata to console.
+  -d, --destroy              Destroys the whole container infrstructure before creating it.
+  -h, --help                 Shows this help output
+
+Details:
+Load and validate the fleet-config, creates and print a fleet-plan and test the defined host connections.
+
+! Fleetform by HalsMaulMajo (supported by CoreUnit.NET) !
+```
+
+## ff destroy -h
+```sh
+# DESTORY #
+
+Usage: fleetform destory [OPTIONS]
+
+Destorys the whole container infrasturcture.
+
+Options:
+  -v, --verbose              Show basic flag adn target informations.
+  -f, --file [string]        The path to a file or a folder with a fleet.json, js or ts file!
+      --ignorets             Don't compile typescript files/projects if found at target file/folder.
+      --ignorejson           Don't parse json files if found at target file.
+  -c, --currenthost [string] Set the current host name (default: 'local').
+      --nameprefix [string]  Set the container and network prefix (default: 'ff-').
+  -t, --timeout [number]     Set timeout for apply the contianer
+  -o, --outfile [string]     Export the parsed fleetform data json into a file.
+  -p, --printdata            Print parsed fleetdata to console.
+  -h, --help                 Shows this help output
+
+Run 'fleetform destory --help' for more informations on a command.
+
+! Fleetform by HalsMaulMajo (supported by CoreUnit.NET) !
 ```
 
 # Naming
@@ -62,6 +152,10 @@ fleetform -h
 "Fleetform" forms and manages a Docker container infrastructure.
 The word "fleet" from the name refers to ships, or rather container ships.
 "from" is a verb with the context to form something.
+
+---
+
+*by HalsMaulMajo (supported by CoreUnit.NET)*
 
 
 
