@@ -2,7 +2,9 @@
 
 A Container IAC (Infrastructure as Code) deploy tool.
 
-Fleetform is a cli tool which deploys Docker container infrastructures on multiple hosts.   
+Fleetform is a cli tool which deploys Docker container infrastructures on multiple hosts.  
+
+**Attention**: Its currently just a WIP (Work in progress) but you can already use it. 
 
 # Benefit
 
@@ -10,14 +12,23 @@ Sometimes there is the point that you just want to start and manage 2-3 containe
 
 For example i you just want to test some container or run a single instance.
 
-**Attention**: Its currently just a WIP (Work in progress) but you can already use it. 
-
 ## Work
  - A docker like cli tool
  - Rich, help, verbose and debug flags
  - "--file/-f" (default current working dir) defines the plan file / project dir
- - "--disassemble/-d" flag that stops all running flaged fleetform container on the local host
- - "--apply/-a" flag first disassemble everything and deploy then every planned container on the local host
+ - "--verbose" flag as global flag to analyse what fleetform is doing 
+ - "destroy" sub command
+    - remove all fleetform created and all plan networks and containers
+    - and more flags...
+ - "apply" sub command
+    - auto check difference between plan and current containers and networks
+    - pull needed images
+    - create networks
+    - create and start containe async
+    - "--destroy" flag to recreate everything
+    - and more flags...
+ - "plan" sub command shows the plan date to the console
+    - and more flags...
  - "--ignorets" ignore ts files or configs
  - "--ignorejson" ignore json files
 
@@ -26,7 +37,6 @@ For example i you just want to test some container or run a single instance.
  - "--timeout/-t" flag to set the connection timeout
  - "--testconnection" flag to test the host connections
  - "--watch/-w" flag to watch changes on a plan and apply changes if changed
- - "--sync" flag that allows to 
  - Better docker network configuration
 
 # How it work
@@ -36,6 +46,10 @@ It first loads a json, javascript or typescript infrastructure file that already
 Then a plan will be created that describes conntection informations, container-host relations.
 
 Fleetform pulls needed images, stop all old containers and deploy the new plan.
+
+# work in progress
+
+# already working
 
 # getting started
 
