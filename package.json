@@ -1,7 +1,7 @@
 {
   "name": "fleetform",
-  "version": "1.2.6",
-  "description": "A docker manager.",
+  "version": "1.2.8",
+  "description": "A docker container infrastructure as code cli tool.",
   "main": "dist/index.js",
   "author": "HalsMaulMajo",
   "license": "MIT",
@@ -10,7 +10,7 @@
     "docker",
     "container",
     "iac",
-    "incrastructure",
+    "infrastructure",
     "fleetform",
     "typescript",
     "cli"
@@ -27,7 +27,7 @@
     "build": "tsc -p tsconfig.json",
     "tsnode": "ts-node src/index.ts",
     "test": "echo 'No test exist!'",
-    "release": "npm up -g npm@latest; npm up; npm run compile; npm run test; npm publish"
+    "release": "npm i -g npm@latest; npm up; npm run build; npm run test; npm publish"
   },
   "devDependencies": {
     "@types/dockerode": "^3.3.1",
