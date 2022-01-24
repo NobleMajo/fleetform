@@ -27,7 +27,7 @@
     "build": "tsc -p tsconfig.json",
     "tsnode": "ts-node src/index.ts",
     "test": "echo 'No test exist!'",
-    "release": "npm i -g npm@latest; npm up; npm run build; npm run test; npm publish"
+    "release": "npm up; npm run build; npm run test; npm publish"
   },
   "devDependencies": {
     "@types/dockerode": "^3.3.1",
