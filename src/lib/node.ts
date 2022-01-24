@@ -2,10 +2,9 @@
 import { fork, ForkOptions } from "child_process"
 import process = require("process")
 import { formatPath, getFileType } from "./files"
-import { debugValue, LogType, printLogVarStream, VarInputStream, VarStream } from "./varstream"
+import { LogType, VarInputStream, VarStream } from "./varstream"
 import * as fs from "fs"
-import { defaultCmdTimeout, shell, ShellOptions, ShellTimeoutError } from "./shell"
-import { POINT_CONVERSION_COMPRESSED } from "constants"
+import { defaultCmdTimeout, ShellOptions, ShellTimeoutError } from "./shell"
 
 export interface NodeOptions extends ForkOptions {
     pipeEnv?: boolean,

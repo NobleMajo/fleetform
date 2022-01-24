@@ -1,6 +1,6 @@
 {
   "name": "fleetform",
-  "version": "1.2.8",
+  "version": "1.2.9",
   "description": "A docker container infrastructure as code cli tool.",
   "main": "dist/index.js",
   "author": "HalsMaulMajo",

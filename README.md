@@ -10,7 +10,7 @@ Fleetform is a cli tool which deploys Docker container infrastructures on multip
 
 Sometimes there is the point that you just want to start and manage 2-3 containers on 1-2 hosts without log into each host or create a kubernetes deployment.
 
-For example i you just want to test some container or run a single instance.
+For example i you just want to test some container or run a single instance of it.
 
 # already working
  - A docker like cli tool

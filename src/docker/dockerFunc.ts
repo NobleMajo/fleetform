@@ -33,7 +33,7 @@ export async function pullNeededImages(
 export async function createNetworks(
     executer: DockerExecuter,
     networks: string[],
-    prefix: string = ""
+    prefix: string
 ): Promise<void> {
     await Promise.all(
         networks.map((networkName) => {
@@ -49,7 +49,7 @@ export async function createNetworks(
 export async function createNetwork(
     executer: DockerExecuter,
     networkName: string,
-    prefix: string = "",
+    prefix: string,
 ): Promise<void> {
     await executer.createNetwork({
         Name: prefix + networkName,
@@ -283,8 +283,9 @@ export interface ContainerInfoMap {
 
 export function removeContainer(
     executer: DockerExecuter,
+    toContainer: string[],
     prefix: string,
-    toContainer?: string[]
+    removeByPrefix: boolean
 ): VarInputStream<[boolean, string]> {
     const varStream = new VarStream<[boolean, string]>()
     executer
@@ -311,11 +312,9 @@ export function removeContainer(
                     break
                 }
                 if (
-                    (
-                        !name.startsWith(prefix) &&
-                        !toContainer.includes(name.substring(prefix.length))
-                    ) &&
-                    containerInfo.Labels["source"] != "fleetform"
+                    containerInfo.Labels["source"] != "fleetform" ||
+                    !name.startsWith(prefix) ||
+                    !toContainer.includes(name.substring(prefix.length))
                 ) {
                     continue;
                 }
@@ -339,6 +338,7 @@ export function removeContainer(
 export function removeNetworks(
     executer: DockerExecuter,
     prefix: string,
+    exclude: string[],
 ): VarInputStream<[boolean, string]> {
     const varStream = new VarStream<[boolean, string]>()
 
@@ -355,8 +355,9 @@ export function removeNetworks(
             ) {
                 const networkInfo = networks[index]
                 if (
+                    networkInfo.Labels["source"] != "fleetform" ||
                     !networkInfo.Name.startsWith(prefix) ||
-                    networkInfo.Labels["source"] != "fleetform"
+                    exclude.includes(networkInfo.Name)
                 ) {
                     continue;
                 }

@@ -78,6 +78,14 @@ export const destroy: Flag = {
     description: "Destroys the whole container infrstructure before creating it.",
 }
 
+export const renew: Flag = {
+    name: "renew",
+    alias: ["re", "ren", "rene"],
+    shorthand: "r",
+    description: "Define containers that should be renewed.",
+    types: ["string"]
+}
+
 export const applyDefinition: CmdDefinition = {
     name: "apply",
     alias: ["a", "ap", "app", "appl"],
@@ -93,6 +101,7 @@ export const applyDefinition: CmdDefinition = {
         timeout,
         outFile,
         printData,
+        renew,
         destroy,
     ],
     cmds: [
@@ -114,6 +123,7 @@ export const applyDefinition: CmdDefinition = {
         const namePrefix = cmd.valueFlags.nameprefix[0]
         const outFile = cmd.valueFlags.outfile[0]
         let currentHost = cmd.valueFlags.currenthost[0]
+        const renewContainers = cmd.valueFlags.renew
         if (typeof currentHost != "string") {
             currentHost = undefined
         }
@@ -163,8 +173,9 @@ export const applyDefinition: CmdDefinition = {
                 await Promise.all([
                     removeContainer(
                         executer,
-                        plan.namePrefix,
                         plan.plannedContainer,
+                        plan.namePrefix,
+                        true,
                     )
                         .forEach((container) => {
                             if (container[0]) {
@@ -177,6 +188,54 @@ export const applyDefinition: CmdDefinition = {
                     removeNetworks(
                         executer,
                         plan.namePrefix,
+                        []
+                    )
+                        .forEach((network) => {
+                            if (network[0]) {
+                                console.log(" - Network '" + network[1] + "' deleted!")
+                            } else {
+                                console.log(" - Delete '" + network[1] + "' network...")
+                            }
+                        })
+                        .toPromise()
+                ])
+            } else {
+                if (renewContainers && renewContainers.length > 0) {
+                    await removeContainer(
+                        executer,
+                        renewContainers,
+                        plan.namePrefix,
+                        false,
+                    )
+                        .forEach((container) => {
+                            if (container[0]) {
+                                console.log(" - Container '" + container[1] + "' deleted!")
+                            } else {
+                                console.log(" - Delete '" + container[1] + "' container...")
+                            }
+                        })
+                        .toPromise()
+                }
+                console.info("# REMOVE NETWORKS AND CONTAINERS #")
+                Promise.all([
+                    removeContainer(
+                        executer,
+                        [],
+                        plan.namePrefix,
+                        true,
+                    )
+                        .forEach((container) => {
+                            if (container[0]) {
+                                console.log(" - Container '" + container[1] + "' deleted!")
+                            } else {
+                                console.log(" - Delete '" + container[1] + "' container...")
+                            }
+                        })
+                        .toPromise(), ,
+                    removeNetworks(
+                        executer,
+                        plan.namePrefix,
+                        plan.dockerHostNetworks[hostName]
                     )
                         .forEach((network) => {
                             if (network[0]) {
@@ -249,7 +308,11 @@ export const applyDefinition: CmdDefinition = {
                             }
                         })
                     })
-                plannedHostContainers = plannedHostContainers.filter((n) => !realContainers.includes(n))
+                plannedHostContainers = plannedHostContainers.filter(
+                    (n) => {
+                        return renewContainers.includes(n) && !realContainers.includes(n)
+                    }
+                )
             }
             const containers: ContainerMap = {}
             plannedHostContainers.forEach((containerName) => {

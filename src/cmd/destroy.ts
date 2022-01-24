@@ -139,8 +139,9 @@ export const destoryDefinition: CmdDefinition = {
             await Promise.all([
                 removeContainer(
                     executer,
-                    plan.namePrefix,
                     plan.plannedContainer,
+                    plan.namePrefix,
+                    true,
                 )
                     .forEach((container) => {
                         if (container[0]) {
@@ -153,6 +154,7 @@ export const destoryDefinition: CmdDefinition = {
                 removeNetworks(
                     executer,
                     plan.namePrefix,
+                    []
                 )
                     .forEach((network) => {
                         if (network[0]) {
