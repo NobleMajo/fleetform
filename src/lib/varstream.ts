@@ -464,20 +464,25 @@ export class VarStream<T> implements VarInputStream<T>, VarOutputStream<T>{
         const newStream = new VarStream<T>()
         const promises: Promise<void>[] = []
         this.forEach((data, meta) => {
-            const data2 = callback(data, meta, this)
+            const data2: Promise<boolean> | boolean = callback(data, meta, this)
             if (
+                data2 &&
                 typeof (data2 as any).then === 'function' &&
                 typeof (data2 as any).catch === 'function'
             ) {
                 promises.push((async () => {
-                    if (await (data2 as Promise<boolean>)) {
+                    if (
+                        (
+                            await (data2)
+                        ) !== false
+                    ) {
                         newStream.write(
                             data,
                             meta
                         )
                     }
                 })())
-            } else if (data2) {
+            } else if (data2 !== false) {
                 newStream.write(
                     data,
                     meta
@@ -502,6 +507,9 @@ export class VarStream<T> implements VarInputStream<T>, VarOutputStream<T>{
         const promises: Promise<void>[] = []
         this.forEach((data, meta) => {
             const data2 = callback(data, meta, this)
+            if (data2 == undefined) {
+                return
+            }
             if (
                 typeof (data2 as any).then === 'function' &&
                 typeof (data2 as any).catch === 'function'
