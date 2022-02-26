@@ -501,7 +501,6 @@ export async function importModule(
                         })
                     })
                     .map((line: string) => {
-                        console.log(" - TS-LINE: ", line)
                         if (
                             line.startsWith("TSFILE: ") &&
                             line.endsWith(settings.jsSuffix)
