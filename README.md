@@ -1,16 +1,40 @@
 # fleetform
+[![](https://img.shields.io/docker/image-size/majo418/fleetform)](https://hub.docker.com/r/majo418/fleetform)
+![CI](https://github.com/majo418/fleetform/workflows/Image/badge.svg)
+![MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 
-A Container IAC (Infrastructure as Code) deploy tool.
+![](https://img.shields.io/badge/dynamic/json?color=darkred&label=Issues&query=open_issues&suffix=x&url=https%3A%2F%2Fapi.github.com%2Frepos%2Fmajo418%2Ffleetform)
+![](https://img.shields.io/badge/dynamic/json?color=navy&label=Forks&query=forks&suffix=x&url=https%3A%2F%2Fapi.github.com%2Frepos%2Fmajo418%2Ffleetform)
+![](https://img.shields.io/badge/dynamic/json?color=green&label=Subscribers&query=subscribers_count&suffix=x&url=https%3A%2F%2Fapi.github.com%2Frepos%2Fmajo418%2Ffleetform)
 
+# table of contents
+- [fleetform](#fleetform)
+- [table of contents](#table-of-contents)
+- [about](#about)
+- [Benefit](#benefit)
+- [already working](#already-working)
+- [work in progress](#work-in-progress)
+- [How it work](#how-it-work)
+- [getting started](#getting-started)
+  - [requirements](#requirements)
+  - [install fleetform](#install-fleetform)
+  - [run fleetform (node)](#run-fleetform-node)
+- [development (tsnode)](#development-tsnode)
+  - [uninstall fleetform](#uninstall-fleetform)
+- [Cli Output](#cli-output)
+  - [ff (base command)](#ff-base-command)
+  - [ff apply -h](#ff-apply--h)
+  - [ff destroy -h](#ff-destroy--h)
+- [Naming](#naming)
+
+# about
+A Container IAC (Infrastructure as Code) deploy tool.  
 Fleetform is a cli tool which deploys Docker container infrastructures on multiple hosts.  
-
-**Attention**: Its currently just a WIP (Work in progress) but you can already use it. 
+**Attention**: Its currently just a WIP (Work in progress) but you can already use it.  
 
 # Benefit
-
-Sometimes there is the point that you just want to start and manage 2-3 containers on 1-2 hosts without log into each host or create a kubernetes deployment.
-
-For example i you just want to test some container or run a single instance of it.
+Sometimes there is the point that you just want to start and manage 2-3 containers on 1-2 hosts without log into each host or create a kubernetes deployment.  
+For example i you just want to test some container or run a single instance of it.  
 
 # already working
  - A docker like cli tool

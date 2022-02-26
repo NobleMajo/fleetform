@@ -1,5 +1,5 @@
 import { Flag, CmdDefinition } from "cmdy"
-import { formatPath, writeJson } from "../lib/files"
+import { formatPath, writeJson } from "../lib/fs"
 import { connectAllDockerHosts, parseFleetPlan, validateFleetSettings } from "../fleetform/fleetformFunc"
 import { importModule } from "../lib/node"
 import { FleetSettings } from "../fleetform/fleetformTypes"

@@ -1,6 +1,6 @@
 import { Flag, CmdDefinition } from "cmdy"
 import { DockerExecuter } from "../docker/DockerExecuter"
-import { formatPath, writeJson } from "../lib/files"
+import { formatPath, writeJson } from "../lib/fs"
 import { connectAllDockerHosts, parseFleetPlan, validateFleetSettings } from "../fleetform/fleetformFunc"
 import { importModule } from "../lib/node"
 import { ContainerMap, FleetSettings } from "../fleetform/fleetformTypes"
@@ -120,6 +120,7 @@ export const applyDefinition: CmdDefinition = {
         const verbose = cmd.flags.includes("verbose")
         const printData = cmd.flags.includes("printdata")
         const destroy = cmd.flags.includes("destroy")
+        const watch = cmd.flags.includes("watch")
         const namePrefix = cmd.valueFlags.nameprefix[0]
         const outFile = cmd.valueFlags.outfile[0]
         let currentHost = cmd.valueFlags.currenthost[0]

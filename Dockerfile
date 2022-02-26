@@ -1,27 +1,23 @@
-FROM ubuntu:20.04
-
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && \
-    apt-get install -y apt-utils && \
-    apt-get autoremove -y && \
-    apt-get autoclean
-
-RUN apt-get -y install nodejs npm && \
-    npm i -g npm@latest && \
-    npm i -g n@latest && \
-    n 14 && \
-    npm i -g npm@latest
-
-RUN apt-get install -y openssl
+FROM node:16 as build
 
 WORKDIR /app
 
-COPY ./config.cnf /app/
-COPY ./docker-entrypoint.sh /app/
+RUN npm i -g npm@latest
+COPY package*.json /app/
+RUN npm i
+COPY . /app
+RUN npm run build
 
-RUN chmod +x /app/docker-entrypoint.sh
+FROM node:16
 
-ENTRYPOINT ["sh", "/app/docker-entrypoint.sh"]
+RUN npm i -g npm@latest
+WORKDIR /app
+COPY --from=build /app/package*.json /app/
+RUN npm ci --only=prod && \
+    mkdir /mountpoint && \
+    echo -n "#!/bin/bash\n\nnode /app/dist/index.js\n" >> /usr/local/bin/ff
+COPY --from=build /app/dist /app/dist
 
-CMD []
+WORKDIR /mountpoint
+
+ENTRYPOINT [ "bash" ]

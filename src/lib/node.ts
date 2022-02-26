@@ -1,7 +1,7 @@
 
 import { fork, ForkOptions } from "child_process"
-import process = require("process")
-import { formatPath, getFileType } from "./files"
+import * as process from "process"
+import { formatPath, getFileType } from "./fs"
 import { LogType, VarInputStream, VarStream } from "./varstream"
 import * as fs from "fs"
 import { defaultCmdTimeout, ShellOptions, ShellTimeoutError } from "./shell"

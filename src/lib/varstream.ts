@@ -33,12 +33,18 @@ export type DataCallback<T> =
         meta: StreamDataMeta,
         stream: VarStream<T>
     ) => Promise<any> | any
+export type FilterCallback<T> =
+    (
+        value: T,
+        meta: StreamDataMeta,
+        stream: VarInputStream<T>
+    ) => Promise<boolean> | boolean
 export type MapCallback<T, R> =
     (
         value: T,
         meta: StreamDataMeta,
         stream: VarInputStream<T>
-    ) => Promise<R> | R | undefined
+    ) => Promise<R> | R
 export type CloseCallback<T> =
     (
         meta: StreamCloseMeta,
@@ -76,11 +82,14 @@ export interface VarInputStream<T> {
     then(closeCallback: CloseCallback<T>): VarInputStream<T>
     catch(errorCallback: ErrorCallback<T>): VarInputStream<T>
     buffer(): Promise<[T, StreamDataMeta][]>
+    bufferValues(): Promise<T[]>
+    bufferMeta(): Promise<StreamDataMeta[]>
     collect(): Promise<[[T, StreamDataMeta][], StreamCloseMeta]>
     toPromise(): Promise<StreamCloseMeta>
     forEach(callback: DataCallback<T>): VarInputStream<T>
+    filter(callback: FilterCallback<T>): VarStream<T>
     map<R>(callback: MapCallback<T, R>): VarInputStream<R>
-    spread<R>(callback: MapCallback<T, R[]>): VarStream<R>
+    spread<R>(callback: MapCallback<T, R[]>): VarInputStream<R>
 }
 
 export interface VarOutputStream<T> {
@@ -145,9 +154,12 @@ export class VarStream<T> implements VarInputStream<T>, VarOutputStream<T>{
                 then: (...params: any) => this.then(params[0]),
                 catch: (...params: any) => this.catch(params[0]),
                 buffer: () => this.buffer(),
+                bufferMeta: () => this.bufferMeta(),
+                bufferValues: () => this.bufferValues(),
                 collect: () => this.collect(),
                 toPromise: () => this.toPromise(),
                 forEach: (...params: any) => this.forEach(params[0]),
+                filter: (...params: any) => this.filter(params[0]),
                 map: (...params: any) => this.map(params[0]),
                 spread: (...params: any) => this.spread(params[0]),
             }
@@ -160,7 +172,6 @@ export class VarStream<T> implements VarInputStream<T>, VarOutputStream<T>{
             this.outputStream = {
                 isClosed: () => this.isClosed(),
                 getClosedMeta: () => this.getClosedMeta(),
-
                 end: (...params: any) => this.end(params[0], params[1]),
                 write: (...params: any) => this.write(params[0], params[1]),
                 writeAll: (...params: any) => this.writeAll(params[0], params[1]),
@@ -447,6 +458,43 @@ export class VarStream<T> implements VarInputStream<T>, VarOutputStream<T>{
         return this.promise
     }
 
+    public filter(
+        callback: FilterCallback<T>,
+    ): VarStream<T> {
+        const newStream = new VarStream<T>()
+        const promises: Promise<void>[] = []
+        this.forEach((data, meta) => {
+            const data2 = callback(data, meta, this)
+            if (
+                typeof (data2 as any).then === 'function' &&
+                typeof (data2 as any).catch === 'function'
+            ) {
+                promises.push((async () => {
+                    if (await (data2 as Promise<boolean>)) {
+                        newStream.write(
+                            data,
+                            meta
+                        )
+                    }
+                })())
+            } else if (data2) {
+                newStream.write(
+                    data,
+                    meta
+                )
+            }
+        })
+        this.finally(
+            async (meta) => {
+                while (promises.length > 0) {
+                    await promises.shift()
+                }
+                newStream.end(meta.err, meta)
+            }
+        )
+        return newStream
+    }
+
     public map<R>(
         callback: MapCallback<T, R>,
     ): VarStream<R> {
@@ -454,20 +502,18 @@ export class VarStream<T> implements VarInputStream<T>, VarOutputStream<T>{
         const promises: Promise<void>[] = []
         this.forEach((data, meta) => {
             const data2 = callback(data, meta, this)
-            if (data2 != undefined) {
-                if (
-                    typeof (data2 as any).then === 'function' &&
-                    typeof (data2 as any).catch === 'function'
-                ) {
-                    promises.push((async () => {
-                        newStream.write(
-                            await (data2 as Promise<R>),
-                            meta
-                        )
-                    })())
-                } else {
-                    newStream.write(data2 as R, meta)
-                }
+            if (
+                typeof (data2 as any).then === 'function' &&
+                typeof (data2 as any).catch === 'function'
+            ) {
+                promises.push((async () => {
+                    newStream.write(
+                        await (data2 as Promise<R>),
+                        meta
+                    )
+                })())
+            } else {
+                newStream.write(data2 as R, meta)
             }
         })
         this.finally(
