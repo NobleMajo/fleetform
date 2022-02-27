@@ -226,6 +226,7 @@ export async function createContainer(
             const hostPort = container.publish[containerPort]
             publishPorts[containerPort] = [
                 {
+                    "HostIp": "0.0.0.0",
                     "HostPort": "" + hostPort
                 }
             ]
