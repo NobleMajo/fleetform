@@ -230,6 +230,7 @@ export async function createContainer(
                     "HostPort": "" + hostPort
                 }
             ]
+            exposePorts[hostPort] = {}
         }
     )
 
