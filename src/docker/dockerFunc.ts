@@ -275,7 +275,6 @@ export async function createContainer(
             },
             AutoRemove: false
         },
-        NetworkingConfig: {}
     })
 }
 

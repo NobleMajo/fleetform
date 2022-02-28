@@ -59,10 +59,10 @@ export const outFile: Flag = {
     types: ["string"],
 }
 
-export const destoryDefinition: CmdDefinition = {
-    name: "destory",
-    alias: ["d", "de", "des", "dest", "desto", "destor", "disassemble"],
-    description: "Destorys the whole container infrasturcture.",
+export const destroyDefinition: CmdDefinition = {
+    name: "destroy",
+    alias: ["d", "de", "des", "dest", "destr", "destro", "disassemble"],
+    description: "destroys the whole container infrasturcture.",
     flags: [
         file,
         ignoreTypescript,
@@ -170,4 +170,4 @@ export const destoryDefinition: CmdDefinition = {
     }
 }
 
-export default destoryDefinition
+export default destroyDefinition
