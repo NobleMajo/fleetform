@@ -207,13 +207,13 @@ export function createContainers(
 export async function createContainer(
     executer: DockerExecuter,
     name: string,
-    container: Container,
+    containerConfig: Container,
     prefix: string,
 ): Promise<Dockerode.Container> {
     const exposePorts: {
         [containerPort: string]: {}
     } = {}
-    container.expose.forEach(
+    containerConfig.expose.forEach(
         (port: string) => {
             exposePorts[port] = {}
         }
@@ -221,16 +221,16 @@ export async function createContainer(
     const publishPorts: {
         [containerPort: string]: {}
     } = {}
-    Object.keys(container.publish).forEach(
+    Object.keys(containerConfig.publish).forEach(
         (containerPort: string) => {
-            const hostPort = container.publish[containerPort]
+            const hostPort = containerConfig.publish[containerPort]
             publishPorts[containerPort] = [
                 {
                     "HostIp": "0.0.0.0",
                     "HostPort": "" + hostPort
                 }
             ]
-            exposePorts[hostPort] = {}
+            exposePorts["" + hostPort] = {}
         }
     )
 
@@ -239,10 +239,10 @@ export async function createContainer(
         [volume: string]: {}
     } = {}
 
-    const volumes2 = Object.keys(container.volumes)
+    const volumes2 = Object.keys(containerConfig.volumes)
     volumes2.forEach((volume) => {
         volumes[volume] = {}
-        binds.push(volume + ":" + container.volumes[volume])
+        binds.push(volume + ":" + containerConfig.volumes[volume])
     })
 
     return await executer.createContainer({
@@ -252,19 +252,19 @@ export async function createContainer(
             prefix: prefix,
             source: "fleetform",
         },
-        Env: Object.keys(container.envs).map(
+        Env: Object.keys(containerConfig.envs).map(
             (key: string) => {
-                return key + "=" + container.envs[key]
+                return key + "=" + containerConfig.envs[key]
             }
         ),
-        Image: container.image + ":" + container.tag,
+        Image: containerConfig.image + ":" + containerConfig.tag,
         Volumes: volumes,
         ExposedPorts: exposePorts,
         AttachStdin: false,
         AttachStdout: false,
         AttachStderr: false,
         Tty: false,
-        Cmd: container.args,
+        Cmd: containerConfig.args,
         OpenStdin: false,
         StdinOnce: false,
         HostConfig: {
