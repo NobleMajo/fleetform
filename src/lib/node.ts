@@ -482,13 +482,14 @@ export async function importModule(
                 settings.compileTs &&
                 await getFileType(modulePath + "/" + settings.tsConfigName) == "FILE"
             ) {
-                let errorLines: string = ""
+                let output: string = "TypeScript Compile Output:"
                 const paths = await tsc({
                     ...options,
                     project: modulePath + "/" + settings.tsConfigName,
                     listEmittedFiles: true,
                 })
                     .spread((log) => {
+                        output += "\n" + log[1]
                         const line = "" + log[1]
                         return line.split("\n").map((v) => {
                             while (v.startsWith(" ")) {
@@ -506,8 +507,6 @@ export async function importModule(
                             line.endsWith(settings.jsSuffix)
                         ) {
                             return line.substring(8)
-                        } else if (line.includes(" error ")) {
-                            errorLines += "\n" + line
                         }
                         return undefined
                     })
@@ -524,11 +523,7 @@ export async function importModule(
                 }
 
                 if (paths.length == 0) {
-                    if (errorLines.length > 0) {
-                        throw new Error("TypeScript Type Errors:" + errorLines)
-                    } else {
-                        throw new Error("Unknown TypeScript Compile Error!")
-                    }
+                    throw new Error("TypeScript Compile Error:\n" + output)
                 }
             }
             return require(formatPath(packageData.main, modulePath))
