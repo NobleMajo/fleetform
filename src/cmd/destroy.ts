@@ -4,7 +4,7 @@ import { formatPath, writeJson } from "../lib/fs"
 import { connectAllDockerHosts, parseFleetPlan, validateFleetSettings } from "../fleetform/fleetformFunc"
 import { importModule } from "../lib/node"
 import { FleetSettings } from "../fleetform/fleetformTypes"
-import { removeContainer, removeNetworks } from "../docker/dockerFunc"
+import { removeContainers, removeNetworks } from "../docker/dockerFunc"
 
 export const file: Flag = {
     name: "file",
@@ -137,11 +137,11 @@ export const destroyDefinition: CmdDefinition = {
 
             console.info("# REMOVE NETWORKS AND CONTAINER #")
             await Promise.all([
-                removeContainer(
+                removeContainers(
                     executer,
                     plan.plannedContainer,
+                    undefined,
                     plan.namePrefix,
-                    true,
                 )
                     .forEach((container) => {
                         if (container[0]) {
@@ -153,8 +153,9 @@ export const destroyDefinition: CmdDefinition = {
                     .toPromise(),
                 removeNetworks(
                     executer,
+                    undefined,
+                    undefined,
                     plan.namePrefix,
-                    []
                 )
                     .forEach((network) => {
                         if (network[0]) {

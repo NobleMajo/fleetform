@@ -223,11 +223,11 @@ export async function createContainer(
     } = {}
     Object.keys(containerConfig.publish).forEach(
         (containerPort: string) => {
-            const hostPort = containerConfig.publish[containerPort]
+            const hostTarget = containerConfig.publish[containerPort]
             publishPorts[containerPort] = [
                 {
-                    "HostIp": "0.0.0.0",
-                    "HostPort": "" + hostPort
+                    "HostIp": hostTarget[0],
+                    "HostPort": "" + hostTarget[1],
                 }
             ]
             exposePorts[containerPort] = {}
@@ -282,11 +282,13 @@ export interface ContainerInfoMap {
     [key: string]: ContainerInfo
 }
 
-export function removeContainer(
+export function removeContainers(
     executer: DockerExecuter,
-    toContainer: string[],
-    prefix: string,
-    removeByPrefix: boolean
+    include?: string[] | undefined,
+    exclude?: string[] | undefined,
+    prefix?: string,
+    labelKey: string | undefined = "source",
+    labelValue: string | undefined = "fleetform"
 ): VarInputStream<[boolean, string]> {
     const varStream = new VarStream<[boolean, string]>()
     executer
@@ -313,11 +315,33 @@ export function removeContainer(
                     break
                 }
                 if (
-                    containerInfo.Labels["source"] != "fleetform" ||
-                    !name.startsWith(prefix) ||
-                    !toContainer.includes(name.substring(prefix.length))
+                    labelKey &&
+                    labelValue &&
+                    containerInfo.Labels[labelKey] != labelValue
                 ) {
-                    continue;
+                    continue
+                }
+                if (prefix) {
+                    if (
+                        !name.startsWith(prefix)
+                    ) {
+                        if (
+                            !include ||
+                            include.includes(
+                                name.substring(prefix.length)
+                            )
+                        ) {
+                            continue
+                        }
+                        if (
+                            exclude &&
+                            exclude.includes(
+                                name.substring(prefix.length)
+                            )
+                        ) {
+                            continue
+                        }
+                    }
                 }
                 varStream.write([false, name])
                 const container = executer.getContainer(containerInfo.Id)
@@ -338,11 +362,13 @@ export function removeContainer(
 
 export function removeNetworks(
     executer: DockerExecuter,
-    prefix: string,
-    exclude: string[],
+    include?: string[] | undefined,
+    exclude?: string[] | undefined,
+    prefix?: string,
+    labelKey: string | undefined = "source",
+    labelValue: string | undefined = "fleetform"
 ): VarInputStream<[boolean, string]> {
     const varStream = new VarStream<[boolean, string]>()
-
     executer
         .listNetworks({
             all: true
@@ -355,19 +381,49 @@ export function removeNetworks(
                 index++
             ) {
                 const networkInfo = networks[index]
-                if (
-                    networkInfo.Labels["source"] != "fleetform" ||
-                    !networkInfo.Name.startsWith(prefix) ||
-                    exclude.includes(networkInfo.Name)
-                ) {
-                    continue;
+                let name = networkInfo.Name
+                if (name.startsWith("/")) {
+                    name = name.substring(1)
                 }
-                varStream.write([false, networkInfo.Name])
+                if (name.length == 0) {
+                    break
+                }
+
+                if (
+                    labelKey &&
+                    labelValue &&
+                    networkInfo.Labels[labelKey] != labelValue
+                ) {
+                    continue
+                }
+                if (prefix) {
+                    if (
+                        !name.startsWith(prefix)
+                    ) {
+                        if (
+                            !include ||
+                            include.includes(
+                                name.substring(prefix.length)
+                            )
+                        ) {
+                            continue
+                        }
+                        if (
+                            exclude &&
+                            exclude.includes(
+                                name.substring(prefix.length)
+                            )
+                        ) {
+                            continue
+                        }
+                    }
+                }
+                varStream.write([false, name])
                 promises.push((async () => {
                     await executer
                         .getNetwork(networkInfo.Id)
-                        .remove()
-                    varStream.write([true, networkInfo.Name])
+                        .remove().catch(() => { })
+                    varStream.write([true, name])
                 })())
             }
             Promise.all(promises)

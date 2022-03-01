@@ -1,7 +1,6 @@
 import {
     Container,
     ContainerMap,
-    ContainerTask,
     FleetPlan,
     HostOptions,
     HostMapOptions,
@@ -9,7 +8,6 @@ import {
     FleetValidateError,
     Host,
     HostMap, HostRoutes,
-    TaskMap
 } from
     "./fleetformTypes"
 import { DockerExecuterOptions } from "../docker/dockerTypes"
@@ -111,6 +109,53 @@ export function parseContainer(container: string, obj: any, currentHost: string)
         obj.publish == null
     ) {
         obj.publish = {}
+    }
+    for (const key of Object.keys(obj.publish)) {
+        const splittedKey: (number | string)[] = key.split("/")
+        splittedKey[0] = Number(splittedKey[0])
+        if (
+            splittedKey.length != 2 ||
+            isNaN(splittedKey[0]) ||
+            typeof splittedKey[1] != "string" ||
+            splittedKey[1].length < 1
+        ) {
+            throw new Error("The publish key '" + key + "' is not a valid key like: '80/tcp' (<port>/<protocol>)")
+        }
+        const value = obj.publish[key]
+        let address: string = ""
+        let port: number = -1
+        if (!isNaN(value)) {
+            port = value
+        } else if (Array.isArray(value)) {
+            address = value[0]
+            port = Number(value[1])
+            if (typeof address != "string") {
+                throw new Error("The first tuple type of the publish port '" + key + "' needs to be a host as string ([host: string, port: number])")
+            } else if (isNaN(port)) {
+                throw new Error("The second tuple type of the publish port '" + key + "' needs to be a port as number ([host: string, port: number])")
+            }
+        } else if (typeof value == "string") {
+            const index = value.lastIndexOf(":")
+            if (index < 1) {
+                throw new Error("The publish value of '" + key + "' has not port (<host: string>:<port: number>)")
+            }
+            address = value.substring(0, index)
+            port = Number(value.substring(index + 1))
+            if (typeof address != "string") {
+                throw new Error("The first tuple type of the publish port '" + key + "' needs to be a host as string ([host: string, port: number])")
+            } else if (isNaN(port)) {
+                throw new Error("The second tuple type of the publish port '" + key + "' needs to be a port as number ([host: string, port: number])")
+            }
+        } else {
+            throw new Error("The publish value '" + key + "' is not a number, string or tuple with address or/and port")
+        }
+        if (address.length == 0) {
+            address = "0.0.0.0"
+        }
+        if (port < 0 || port > 65535) {
+            throw new Error("The port is not a valid port: '" + port + "'")
+        }
+        obj.publish[key] = [address, port]
     }
     if (
         typeof obj.expose != "object" ||

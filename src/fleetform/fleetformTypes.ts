@@ -15,7 +15,7 @@ export interface ContainerOptions {
     tag?: string,
     host?: string,
     publish?: {
-        [key: string]: number,
+        [key: string]: number | string | [string, number],
     },
     expose?: string[],
     envs?: {
@@ -51,7 +51,7 @@ export interface Container extends ContainerOptions {
     tag: string,
     host: string,
     publish: {
-        [key: string]: number,
+        [key: string]: [string, number],
     },
     expose: string[],
     envs: {

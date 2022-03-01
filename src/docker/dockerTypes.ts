@@ -5,7 +5,7 @@ export interface Container {
     tag: string,
     host: string,
     publish: {
-        [key: string]: number,
+        [key: string]: [string, number],
     },
     expose: string[],
     envs: {

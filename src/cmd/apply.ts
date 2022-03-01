@@ -8,7 +8,7 @@ import {
     createContainers,
     createNetworks,
     pullNeededImages,
-    removeContainer,
+    removeContainers,
     removeNetworks
 } from "../docker/dockerFunc"
 
@@ -172,11 +172,11 @@ export const applyDefinition: CmdDefinition = {
             if (destroy) {
                 console.info("# REMOVE NETWORKS AND CONTAINERS #")
                 await Promise.all([
-                    removeContainer(
+                    removeContainers(
                         executer,
-                        plan.plannedContainer,
+                        undefined,
+                        undefined,
                         plan.namePrefix,
-                        true,
                     )
                         .forEach((container) => {
                             if (container[0]) {
@@ -188,8 +188,9 @@ export const applyDefinition: CmdDefinition = {
                         .toPromise(),
                     removeNetworks(
                         executer,
+                        undefined,
+                        undefined,
                         plan.namePrefix,
-                        []
                     )
                         .forEach((network) => {
                             if (network[0]) {
@@ -198,15 +199,15 @@ export const applyDefinition: CmdDefinition = {
                                 console.log(" - Delete '" + network[1] + "' network...")
                             }
                         })
-                        .toPromise()
+                        .toPromise(),
                 ])
             } else {
                 if (renewContainers && renewContainers.length > 0) {
-                    await removeContainer(
+                    await removeContainers(
                         executer,
                         renewContainers,
+                        undefined,
                         plan.namePrefix,
-                        false,
                     )
                         .forEach((container) => {
                             if (container[0]) {
@@ -219,11 +220,11 @@ export const applyDefinition: CmdDefinition = {
                 }
                 console.info("# REMOVE NETWORKS AND CONTAINERS #")
                 Promise.all([
-                    removeContainer(
+                    removeContainers(
                         executer,
-                        [],
-                        plan.namePrefix,
-                        true,
+                        undefined,
+                        plan.hostContainer[hostName],
+                        plan.namePrefix
                     )
                         .forEach((container) => {
                             if (container[0]) {
@@ -235,8 +236,9 @@ export const applyDefinition: CmdDefinition = {
                         .toPromise(), ,
                     removeNetworks(
                         executer,
+                        undefined,
+                        plan.dockerHostNetworks[hostName],
                         plan.namePrefix,
-                        plan.dockerHostNetworks[hostName]
                     )
                         .forEach((network) => {
                             if (network[0]) {
