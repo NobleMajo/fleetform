@@ -73,7 +73,7 @@ export async function connectAllDockerHosts(plan: FleetPlan, test: boolean = fal
     return infos
 }
 
-export const allowedKeys: string[] = ["enabled", "image", "tag", "publish", "expose", "envs", "volumes", "networks", "args", "host"]
+export const allowedKeys: string[] = ["enabled", "image", "tag", "publish", "expose", "envs", "volumes", "networks", "args", "host", "tty"]
 
 export function parseContainer(container: string, obj: any, currentHost: string): Container {
     if (
