@@ -63,7 +63,8 @@ export interface Container extends ContainerOptions {
     },
     networks: string[],
     args: string[],
-    after: string | undefined
+    after: string | undefined,
+    tty: boolean,
 }
 
 export interface ContainerMap extends ContainerMapOptions {
