@@ -26,7 +26,8 @@ export interface ContainerOptions {
     },
     networks?: string[],
     args?: string[],
-    after?: string | undefined
+    after?: string | undefined,
+    tty?: boolean,
 }
 
 export interface ContainerMapOptions {

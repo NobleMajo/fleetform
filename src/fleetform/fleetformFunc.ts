@@ -184,6 +184,9 @@ export function parseContainer(container: string, obj: any, currentHost: string)
     if (!Array.isArray(obj.args)) {
         obj.args = []
     }
+    if (typeof obj.tty != "boolean") {
+        obj.tty = false
+    }
     return obj
 }
 

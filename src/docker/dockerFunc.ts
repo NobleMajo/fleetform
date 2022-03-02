@@ -263,7 +263,7 @@ export async function createContainer(
         AttachStdin: false,
         AttachStdout: false,
         AttachStderr: false,
-        Tty: false,
+        Tty: containerConfig.tty,
         Cmd: containerConfig.args,
         OpenStdin: false,
         StdinOnce: false,
