@@ -422,7 +422,8 @@ export function removeNetworks(
                 promises.push((async () => {
                     await executer
                         .getNetwork(networkInfo.Id)
-                        .remove().catch(() => { })
+                        .remove()
+                        .catch(() => { })
                     varStream.write([true, name])
                 })())
             }

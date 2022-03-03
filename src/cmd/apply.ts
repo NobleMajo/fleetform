@@ -233,7 +233,7 @@ export const applyDefinition: CmdDefinition = {
                                 console.log(" - Delete '" + container[1] + "' container...")
                             }
                         })
-                        .toPromise(), ,
+                        .toPromise(),
                     removeNetworks(
                         executer,
                         undefined,
