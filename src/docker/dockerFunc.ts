@@ -5,6 +5,9 @@ import { IncomingMessage } from "http"
 import * as Dockerode from "dockerode"
 import { Container } from "./dockerTypes"
 
+export type RemoveResultName = "deleting" | "deleted" | "ignored" | "warning" | "error"
+export type RemoveResult = [RemoveResultName, string | Error]
+
 export async function pullNeededImages(
     executor: DockerExecuter,
     plannedImages: string[]
@@ -288,74 +291,82 @@ export function removeContainers(
     exclude?: string[] | undefined,
     prefix?: string,
     labelKey: string | undefined = "source",
-    labelValue: string | undefined = "fleetform"
-): VarInputStream<[boolean, string]> {
-    const varStream = new VarStream<[boolean, string]>()
+    labelValue: string | undefined = "fleetform",
+): VarInputStream<RemoveResult> {
+    const varStream = new VarStream<RemoveResult>()
     executer
         .listContainers({
             all: true
         })
-        .then((containerInfos) => {
-            let promises: Promise<void>[] = []
-
+        .then((networks) => {
+            const promises: Promise<void>[] = []
             for (
                 let index = 0;
-                index < containerInfos.length;
+                index < networks.length;
                 index++
             ) {
-                const containerInfo = containerInfos[index]
-                if (containerInfo.Names.length == 0) {
-                    break
-                }
-                let name = containerInfo.Names[0]
-                if (name.startsWith("/")) {
-                    name = name.substring(1)
-                }
-                if (name.length == 0) {
-                    break
-                }
-                if (
-                    labelKey &&
-                    labelValue &&
-                    containerInfo.Labels[labelKey] != labelValue
-                ) {
-                    continue
-                }
-                if (prefix) {
+                try {
+                    const containerInfo = networks[index]
+                    if (containerInfo.Names.length == 0) {
+                        continue
+                    }
+                    let name = containerInfo.Names[0]
+                    if (name.startsWith("/")) {
+                        name = name.substring(1)
+                    }
+                    if (name.length == 0) {
+                        continue
+                    }
                     if (
-                        !name.startsWith(prefix)
+                        labelKey &&
+                        labelValue &&
+                        containerInfo.Labels[labelKey] != labelValue
                     ) {
+                        varStream.write(["ignored", name])
+                        continue
+                    }
+                    if (prefix) {
                         if (
-                            !include ||
-                            include.includes(
-                                name.substring(prefix.length)
-                            )
+                            !name.startsWith(prefix)
                         ) {
-                            continue
-                        }
-                        if (
-                            exclude &&
-                            exclude.includes(
-                                name.substring(prefix.length)
-                            )
-                        ) {
-                            continue
+                            if (
+                                !include ||
+                                include.includes(
+                                    name.substring(prefix.length)
+                                )
+                            ) {
+                                varStream.write(["ignored", name])
+                                continue
+                            }
+                            if (
+                                exclude &&
+                                exclude.includes(
+                                    name.substring(prefix.length)
+                                )
+                            ) {
+                                varStream.write(["ignored", name])
+                                continue
+                            }
                         }
                     }
+                    varStream.write(["deleting", name])
+                    promises.push((async () => {
+                        const container = await executer
+                            .getContainer(containerInfo.Id)
+                        await container.stop()
+                            .catch(() => { })
+                        await container.remove()
+                        varStream.write(["deleted", name])
+                    })())
+                } catch (err) {
+                    varStream.write(["error", err])
                 }
-                varStream.write([false, name])
-                const container = executer.getContainer(containerInfo.Id)
-                promises.push((async () => {
-                    await container.stop().catch(() => { })
-                    await container.remove()
-                    varStream.write([true, name])
-                })())
             }
-
             Promise.all(promises)
                 .then(() => varStream.end())
                 .catch((err) => varStream.end(err))
         })
+
 
     return varStream.getInputVarStream()
 }
@@ -365,10 +376,11 @@ export function removeNetworks(
     include?: string[] | undefined,
     exclude?: string[] | undefined,
     prefix?: string,
+    force: boolean = false,
     labelKey: string | undefined = "source",
-    labelValue: string | undefined = "fleetform"
-): VarInputStream<[boolean, string]> {
-    const varStream = new VarStream<[boolean, string]>()
+    labelValue: string | undefined = "fleetform",
+): VarInputStream<RemoveResult> {
+    const varStream = new VarStream<RemoveResult>()
     executer
         .listNetworks({
             all: true
@@ -380,52 +392,69 @@ export function removeNetworks(
                 index < networks.length;
                 index++
             ) {
-                const networkInfo = networks[index]
-                let name = networkInfo.Name
-                if (name.startsWith("/")) {
-                    name = name.substring(1)
-                }
-                if (name.length == 0) {
-                    break
-                }
-
-                if (
-                    labelKey &&
-                    labelValue &&
-                    networkInfo.Labels[labelKey] != labelValue
-                ) {
-                    continue
-                }
-                if (prefix) {
+                try {
+                    const networkInfo = networks[index]
+                    let name = networkInfo.Name
+                    if (name.startsWith("/")) {
+                        name = name.substring(1)
+                    }
                     if (
-                        !name.startsWith(prefix)
+                        name.length == 0 ||
+                        name == "host" ||
+                        name == "none" ||
+                        name == "bridge"
                     ) {
+                        continue
+                    }
+                    if (
+                        labelKey &&
+                        labelValue &&
+                        networkInfo.Labels[labelKey] != labelValue
+                    ) {
+                        varStream.write(["ignored", name])
+                        continue
+                    }
+                    if (prefix) {
                         if (
-                            !include ||
-                            include.includes(
-                                name.substring(prefix.length)
-                            )
+                            !name.startsWith(prefix)
                         ) {
-                            continue
-                        }
-                        if (
-                            exclude &&
-                            exclude.includes(
-                                name.substring(prefix.length)
-                            )
-                        ) {
-                            continue
+                            if (
+                                !include ||
+                                include.includes(
+                                    name.substring(prefix.length)
+                                )
+                            ) {
+                                varStream.write(["ignored", name])
+                                continue
+                            }
+                            if (
+                                exclude &&
+                                exclude.includes(
+                                    name.substring(prefix.length)
+                                )
+                            ) {
+                                varStream.write(["ignored", name])
+                                continue
+                            }
                         }
                     }
+                    varStream.write(["deleting", name])
+                    promises.push((async () => {
+                        const network = executer
+                            .getNetwork(networkInfo.Id)
+                        if (!force) {
+                            const inspectData = await network.inspect()
+                            if (Object.keys(inspectData.Containers).length > 0) {
+                                varStream.write(["warning", "Can't delete network '" + name + "' because containers still connected to it"])
+                                return
+                            }
+                        }
+                        await network.remove()
+                        varStream.write(["deleted", name])
+                    })())
+                } catch (err) {
+                    varStream.write(["error", err])
                 }
-                varStream.write([false, name])
-                promises.push((async () => {
-                    await executer
-                        .getNetwork(networkInfo.Id)
-                        .remove()
-                        .catch(() => { })
-                    varStream.write([true, name])
-                })())
             }
             Promise.all(promises)
                 .then(() => varStream.end())

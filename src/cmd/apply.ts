@@ -1,16 +1,6 @@
 import { Flag, CmdDefinition } from "cmdy"
-import { DockerExecuter } from "../docker/DockerExecuter"
-import { formatPath, writeJson } from "../lib/fs"
-import { connectAllDockerHosts, parseFleetPlan, validateFleetSettings } from "../fleetform/fleetformFunc"
-import { importModule } from "../lib/node"
-import { ContainerMap, FleetSettings } from "../fleetform/fleetformTypes"
-import {
-    createContainers,
-    createNetworks,
-    pullNeededImages,
-    removeContainers,
-    removeNetworks
-} from "../docker/dockerFunc"
+import { formatPath } from "../lib/fs"
+import { applyPlan, importData, loadFleetPlan, watchConfig } from './assets';
 
 export const file: Flag = {
     name: "file",
@@ -132,213 +122,71 @@ export const applyDefinition: CmdDefinition = {
         if (timeout == NaN || typeof timeout != "number") {
             timeout = -1
         }
-        if (verbose) {
-            console.info("# VERBOSE #", {
-                file,
-                ignoreTypescript,
-                ignoreJson,
-                verbose,
-                flags: cmd.flags,
-                flagValues: cmd.valueFlags
-            })
-        }
-        let data = await importModule(file, {
-            allowJson: !ignoreJson,
-            compileTs: !ignoreTypescript,
-        })
-        console.info("# FLEET CONFIG FOUND #")
-        if (data.default) {
-            data = data.default
-        }
-        const fleetSettings: FleetSettings = validateFleetSettings(data, currentHost, namePrefix)
-        console.info("# FLEET CONFIG VALID #")
-        const plan = parseFleetPlan(fleetSettings)
-        if (printData) {
-            console.info("# FLEET SETTINGS #", plan)
-        }
-        if (outFile) {
-            await writeJson(
-                formatPath(outFile),
-                plan as any
-            )
-            console.info("# OUTPUT FILE READY #")
-        }
-        const connections = await connectAllDockerHosts(plan, false)
-        const usedHosts = Object.keys(plan.hostContainer)
-        for (let index = 0; index < usedHosts.length; index++) {
-            const hostName = usedHosts[index]
-            const executer: DockerExecuter = connections[hostName].executer
 
-            if (destroy) {
-                console.info("# REMOVE NETWORKS AND CONTAINERS #")
-                await Promise.all([
-                    removeContainers(
-                        executer,
-                        undefined,
-                        undefined,
-                        plan.namePrefix,
-                    )
-                        .forEach((container) => {
-                            if (container[0]) {
-                                console.log(" - Container '" + container[1] + "' deleted!")
-                            } else {
-                                console.log(" - Delete '" + container[1] + "' container...")
-                            }
-                        })
-                        .toPromise(),
-                    removeNetworks(
-                        executer,
-                        undefined,
-                        undefined,
-                        plan.namePrefix,
-                    )
-                        .forEach((network) => {
-                            if (network[0]) {
-                                console.log(" - Network '" + network[1] + "' deleted!")
-                            } else {
-                                console.log(" - Delete '" + network[1] + "' network...")
-                            }
-                        })
-                        .toPromise(),
-                ])
-            } else {
-                if (renewContainers && renewContainers.length > 0) {
-                    await removeContainers(
-                        executer,
-                        renewContainers,
-                        undefined,
-                        plan.namePrefix,
-                    )
-                        .forEach((container) => {
-                            if (container[0]) {
-                                console.log(" - Container '" + container[1] + "' deleted!")
-                            } else {
-                                console.log(" - Delete '" + container[1] + "' container...")
-                            }
-                        })
-                        .toPromise()
+        const data = await importData(
+            verbose,
+            cmd,
+            file,
+            ignoreTypescript,
+            ignoreJson,
+        )
+
+        const plan = await loadFleetPlan(
+            data,
+            currentHost,
+            namePrefix,
+            printData,
+        )
+
+        await applyPlan(
+            plan,
+            outFile,
+            renewContainers,
+            destroy,
+        )
+
+        if (watch) {
+            let reload: boolean = false
+            let loading: boolean = false
+            console.log("# Press CTRL + C to quit FleetForm! #")
+            const stream = watchConfig(file)
+            stream.forEach(async (value) => {
+                if (reload) {
+                    return
                 }
-                console.info("# REMOVE NETWORKS AND CONTAINERS #")
-                Promise.all([
-                    removeContainers(
-                        executer,
-                        undefined,
-                        plan.hostContainer[hostName],
-                        plan.namePrefix
+                if (loading) {
+                    reload = true
+                    return
+                }
+                loading = true
+                while (reload) {
+                    reload = false
+                    console.log("# Reload FleetForm... #")
+                    const data = await importData(
+                        verbose,
+                        cmd,
+                        file,
+                        ignoreTypescript,
+                        ignoreJson,
                     )
-                        .forEach((container) => {
-                            if (container[0]) {
-                                console.log(" - Container '" + container[1] + "' deleted!")
-                            } else {
-                                console.log(" - Delete '" + container[1] + "' container...")
-                            }
-                        })
-                        .toPromise(),
-                    removeNetworks(
-                        executer,
-                        undefined,
-                        plan.dockerHostNetworks[hostName],
-                        plan.namePrefix,
+
+                    const plan = await loadFleetPlan(
+                        data,
+                        currentHost,
+                        namePrefix,
+                        printData,
                     )
-                        .forEach((network) => {
-                            if (network[0]) {
-                                console.log(" - Network '" + network[1] + "' deleted!")
-                            } else {
-                                console.log(" - Delete '" + network[1] + "' network...")
-                            }
-                        })
-                        .toPromise()
-                ])
-            }
 
-            console.info("# APPLY NETWORKS #")
-            let networks = plan.dockerHostNetworks[hostName]
-            if (!destroy) {
-                const realNetworks: string[] = await executer
-                    .listNetworks()
-                    .then((networks) => {
-                        return networks.map((network) => {
-                            return network.Name
-                        })
-                    })
-                networks = networks.filter((n) => !realNetworks.includes(n))
-            }
-            networks.forEach((network) => {
-                console.log(" - Create network '" + network + "'...")
+                    await applyPlan(
+                        plan,
+                        outFile,
+                        renewContainers,
+                        destroy,
+                    )
+                    console.log("# FleetForm reloaded! #")
+                }
+                loading = false
             })
-            await createNetworks(
-                executer,
-                networks,
-                plan.namePrefix,
-            )
-            networks.forEach((network) => {
-                console.log(" - Network '" + network + "' created!")
-            })
-
-            console.info("# PULL IMAGES #")
-            await pullNeededImages(
-                executer,
-                plan.neededImages,
-            )
-
-            console.info("# APPLY CONTAINER #")
-
-            let plannedHostContainers = plan.hostContainer[hostName]
-            if (!destroy) {
-                const realContainers: string[] = []
-                await executer
-                    .listContainers()
-                    .then((containers) => {
-                        containers.forEach((container) => {
-                            const names = container.Names
-                                .map((name) => {
-                                    if (name && name.startsWith("/")) {
-                                        return name.substring(1)
-                                    }
-                                })
-                            for (let index = 0; index < names.length; index++) {
-                                let name = names[index]
-                                if (
-                                    !name ||
-                                    name.length < 0 ||
-                                    !name.startsWith(plan.namePrefix)
-                                ) {
-                                    continue
-                                }
-                                name = name.substring(plan.namePrefix.length)
-                                realContainers.push(name)
-                                return
-                            }
-                        })
-                    })
-                plannedHostContainers = plannedHostContainers.filter(
-                    (n) => {
-                        return renewContainers.includes(n) && !realContainers.includes(n)
-                    }
-                )
-            }
-            const containers: ContainerMap = {}
-            plannedHostContainers.forEach((containerName) => {
-                containers[containerName] = plan.container[containerName]
-                console.log(" - Create container '" + containerName + "'...")
-            })
-
-            await createContainers(
-                executer,
-                containers,
-                plan.namePrefix
-            )
-                .map(async (c) => {
-                    const containerName = c[0]
-                    const container = c[1]
-                    console.log(" - Start '" + containerName + "'...")
-                    await container.start()
-                    return containerName
-                })
-                .forEach((containerName) => {
-                    console.log(" - Container '" + containerName + "' started!")
-                })
-                .toPromise()
         }
     }
 }
