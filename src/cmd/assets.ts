@@ -16,20 +16,17 @@ import {
 
 export function watchConfig(
     path: string
-): VarInputStream<string> {
-    if(isTsNode){
+): VarInputStream<"rename" | "change"> {
+    if (isTsNode) {
         throw new Error("Can't watch files in tsnode!")
     }
-    const stream = new VarStream<string>()
+    const stream = new VarStream<"rename" | "change">()
     fs.watch(
         path,
         {
             recursive: true,
         },
-        (event) => {
-            console.log("event: ", event)
-            stream.write("-----")
-        }
+        (event) => stream.write(event)
     )
     return stream.getInputVarStream()
 }
@@ -119,11 +116,12 @@ export async function applyHost(
                 undefined,
                 plan.namePrefix,
             )
-                .forEach((container) => {
-                    if (container[0]) {
-                        console.log(" - Container '" + container[1] + "' deleted!")
+                .map((result) => result[0] == "ignored" ? undefined : result)
+                .forEach((result) => {
+                    if (result[0] == "deleting") {
+                        console.log(" - Delete '" + result[1] + "' container...")
                     } else {
-                        console.log(" - Delete '" + container[1] + "' container...")
+                        console.log(" - Container '" + result[1] + "' " + result[0] + "!")
                     }
                 })
                 .toPromise(),
@@ -133,11 +131,12 @@ export async function applyHost(
                 undefined,
                 plan.namePrefix,
             )
-                .forEach((network) => {
-                    if (network[0]) {
-                        console.log(" - Network '" + network[1] + "' deleted!")
+                .map((result) => result[0] == "ignored" ? undefined : result)
+                .forEach((result) => {
+                    if (result[0] == "deleting") {
+                        console.log(" - Delete '" + result[1] + "' network...")
                     } else {
-                        console.log(" - Delete '" + network[1] + "' network...")
+                        console.log(" - Network '" + result[1] + "' " + result[0] + "!")
                     }
                 })
                 .toPromise(),
@@ -150,11 +149,12 @@ export async function applyHost(
                 undefined,
                 plan.namePrefix,
             )
-                .forEach((container) => {
-                    if (container[0]) {
-                        console.log(" - Container '" + container[1] + "' deleted!")
+                .map((result) => result[0] == "ignored" ? undefined : result)
+                .forEach((result) => {
+                    if (result[0] == "deleting") {
+                        console.log(" - Delete '" + result[1] + "' container...")
                     } else {
-                        console.log(" - Delete '" + container[1] + "' container...")
+                        console.log(" - Container '" + result[1] + "' " + result[0] + "!")
                     }
                 })
                 .toPromise()
@@ -167,11 +167,12 @@ export async function applyHost(
                 plan.hostContainer[host],
                 plan.namePrefix
             )
-                .forEach((container) => {
-                    if (container[0] == "deleting") {
-                        console.log(" - Delete '" + container[1] + "' container...")
+                .map((result) => result[0] == "ignored" ? undefined : result)
+                .forEach((result) => {
+                    if (result[0] == "deleting") {
+                        console.log(" - Delete '" + result[1] + "' container...")
                     } else {
-                        console.log(" - Container '" + container[1] + "' " + container[0] + "!")
+                        console.log(" - Container '" + result[1] + "' " + result[0] + "!")
                     }
                 })
                 .toPromise(),
@@ -181,11 +182,12 @@ export async function applyHost(
                 plan.dockerHostNetworks[host],
                 plan.namePrefix,
             )
-                .forEach((network) => {
-                    if (network[0] == "deleting") {
-                        console.log(" - Delete '" + network[1] + "' network...")
+                .map((result) => result[0] == "ignored" ? undefined : result)
+                .forEach((result) => {
+                    if (result[0] == "deleting") {
+                        console.log(" - Delete '" + result[1] + "' network...")
                     } else {
-                        console.log(" - Network '" + network[1] + "' " + network[0] + "!")
+                        console.log(" - Network '" + result[1] + "' " + result[0] + "!")
                     }
                 })
                 .toPromise()
