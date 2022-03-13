@@ -125,7 +125,9 @@ export const applyDefinition: CmdDefinition = {
         const renew: string[] = [
             ...renewContainers,
             ...(
-                await ((cmd as any).task(settings.container, executer))
+                cmd && typeof (cmd as any).task == "function" ?
+                    await ((cmd as any).task(settings.container, executer)) :
+                    []
             )
         ]
 
