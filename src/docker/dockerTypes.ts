@@ -1,9 +1,27 @@
 
-export interface Container {
-    enabled: boolean,
+export interface ContainerCreateOptions {
+    name: string,
     image: string,
-    tag: string,
-    host: string,
+    publish?: {
+        [key: string]: [string, number],
+    },
+    expose?: string[],
+    envs?: {
+        [key: string]: string,
+    },
+    volumes?: {
+        [key: string]: string,
+    },
+    labels?: {
+        [key: string]: string,
+    },
+    args?: string[],
+    tty?: boolean,
+}
+
+export interface ContainerCreateSetting {
+    name: string,
+    image: string,
     publish: {
         [key: string]: [string, number],
     },
@@ -14,10 +32,28 @@ export interface Container {
     volumes: {
         [key: string]: string,
     },
-    networks: string[],
+    labels: {
+        [key: string]: string,
+    },
     args: string[],
-    after: string | undefined,
     tty: boolean,
+}
+
+export const defaultContainerCreateSetting = {
+    publish: {},
+    expose: [],
+    envs: {},
+    volumes: {},
+    labels: {},
+    args: [],
+    tty: false,
+}
+
+export function getContainerCreateSetting(options: ContainerCreateOptions): ContainerCreateSetting {
+    return {
+        ...defaultContainerCreateSetting,
+        ...options
+    }
 }
 
 export interface DockerodeOptions {
@@ -73,5 +109,8 @@ export interface DockerExecuterSettings extends DockerExecuterOptions {
 }
 
 export const defaultDockerExecutersSettings: DockerExecuterSettings = {
-    connection: undefined as DockerConnectionOptions
+    connection: {
+        protocol: undefined,
+        socketPath: "/var/run/docker.sock",
+    }
 }

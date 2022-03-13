@@ -3,12 +3,6 @@ import { DockerConnectionOptions } from "../docker/dockerTypes";
 export class FleetValidateError extends Error {
 }
 
-export interface FleetOptions {
-    defaultHost?: string,
-    hosts: HostMapOptions,
-    container: ContainerMapOptions,
-}
-
 export interface ContainerOptions {
     enabled?: boolean,
     image: string,
@@ -34,19 +28,12 @@ export interface ContainerMapOptions {
     [key: string]: ContainerOptions,
 }
 
-export interface HostOptions {
-    ip?: string,
-    net?: string,
-    netIp?: string,
-    localIp?: string,
-    connection: DockerConnectionOptions
+
+export interface FleetOptions {
+    container: ContainerMapOptions,
 }
 
-export interface HostMapOptions {
-    [key: string]: HostOptions,
-}
-
-export interface Container extends ContainerOptions {
+export interface ContainerPlan extends ContainerOptions {
     enabled: boolean,
     image: string,
     tag: string,
@@ -68,45 +55,16 @@ export interface Container extends ContainerOptions {
 }
 
 export interface ContainerMap extends ContainerMapOptions {
-    [key: string]: Container,
-}
-
-export interface Host extends HostOptions {
-    ip: string | undefined,
-    net: string | undefined,
-    netIp: string | undefined,
-    localIp: string | undefined,
-}
-
-export interface HostMap extends HostMapOptions {
-    [key: string]: Host,
-}
-
-export interface HostNetworks {
-    [host: string]: string[],
+    [key: string]: ContainerPlan,
 }
 
 export interface ContainerNetworks {
     [host: string]: string[],
 }
 
-export interface HostRoute {
-    [host: string]: string | string[] | null,
-}
-
-export interface HostRoutes {
-    [host: string]: HostRoute,
-}
-
-export interface HostContainer {
-    [host: string]: string[],
-}
-
 export interface FleetSettings {
-    currentHost: string,
     namePrefix: string,
-    hosts: HostMap,
-    container: ContainerMap
+    container: ContainerMap,
 }
 
 export interface ContainerTask {
@@ -116,31 +74,4 @@ export interface ContainerTask {
 
 export interface TaskMap {
     [key: string]: ContainerTask
-}
-
-export interface HostTasks {
-    [hostName: string]: ContainerTask[]
-}
-
-export interface DockerHostNetworks {
-    [hostName: string]: string[]
-}
-
-export interface HostImages {
-    [hostName: string]: string[]
-}
-
-export interface FleetPlan extends FleetSettings {
-    plannedContainer: string[],
-    unusedContainer: string[],
-    usedHosts: string[],
-    unusedHosts: string[],
-    noNetworkHosts: string[],
-    neededImages: string[],
-    hostNetworks: HostNetworks,
-    containerNetworks: ContainerNetworks,
-    routes: HostRoutes,
-    hostContainer: HostContainer,
-    dockerHostNetworks: DockerHostNetworks,
-    hostImages: HostImages
 }

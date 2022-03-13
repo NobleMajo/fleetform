@@ -1,6 +1,15 @@
 import { Flag, CmdDefinition } from "cmdy"
 import { formatPath } from "../lib/fs"
-import { applyPlan, importData, loadFleetPlan, watchConfig } from './assets';
+import {
+    generateHostTaskSet,
+    getHostResourceInfo,
+    handleTask,
+    Task,
+} from '../task';
+import { DockerExecuter } from '../docker/DockerExecuter';
+import { validateFleetSettings } from "../fleetform/fleetformFunc";
+import { CmdResult } from 'cmdy';
+import { importModule } from "../lib/node";
 
 export const file: Flag = {
     name: "file",
@@ -20,10 +29,16 @@ export const ignoreJson: Flag = {
     description: "Don't parse json files if found at target file.",
 }
 
-export const printData: Flag = {
-    name: "printData",
-    shorthand: "p",
-    description: "Print parsed fleetdata to console.",
+export const taskStat: Flag = {
+    name: "taskStat",
+    shorthand: "s",
+    description: "Print if a task starts and stops.",
+}
+
+export const tasks: Flag = {
+    name: "tasks",
+    shorthand: "t",
+    description: "Print needed apply tasks in the console.",
 }
 
 export const namePrefix: Flag = {
@@ -32,26 +47,6 @@ export const namePrefix: Flag = {
     description: "Set the container and network prefix (default: 'ff-').",
     types: ["string"],
     default: "ff_"
-}
-
-export const currentHost: Flag = {
-    name: "currentHost",
-    shorthand: "c",
-    description: "Set the current host name (default: 'local').",
-    types: ["string"],
-}
-
-export const watch: Flag = {
-    name: "watch",
-    shorthand: "w",
-    description: "Starts fleetform in watch mode.",
-}
-
-export const timeout: Flag = {
-    name: "timeout",
-    shorthand: "t",
-    description: "Set timeout for apply the contianer",
-    types: ["number"],
 }
 
 export const outFile: Flag = {
@@ -78,19 +73,17 @@ export const renew: Flag = {
 
 export const applyDefinition: CmdDefinition = {
     name: "apply",
-    alias: ["a", "ap", "app", "appl"],
+    alias: ["appl", "app", "pply"],
     description: "Applys the fleetplan container infrstructure.",
     details: "Load and validate the fleet-config, creates and print a fleet-plan and test the defined host connections.",
     flags: [
         file,
         ignoreTypescript,
         ignoreJson,
-        currentHost,
         namePrefix,
-        watch,
-        timeout,
         outFile,
-        printData,
+        tasks,
+        taskStat,
         renew,
         destroy,
     ],
@@ -108,20 +101,10 @@ export const applyDefinition: CmdDefinition = {
         const ignoreTypescript = cmd.flags.includes("ignorets")
         const ignoreJson = cmd.flags.includes("ignorejson")
         const verbose = cmd.flags.includes("verbose")
-        const printData = cmd.flags.includes("printdata")
-        const destroy = cmd.flags.includes("destroy")
-        const watch = cmd.flags.includes("watch")
+        const printTasks = cmd.flags.includes("tasks")
+        const taskStat = cmd.flags.includes("taskstat")
         const namePrefix = cmd.valueFlags.nameprefix[0]
-        const outFile = cmd.valueFlags.outfile[0]
-        let currentHost = cmd.valueFlags.currenthost[0]
         const renewContainers = cmd.valueFlags.renew
-        if (typeof currentHost != "string") {
-            currentHost = undefined
-        }
-        let timeout = Number(cmd.valueFlags.timeout[0])
-        if (timeout == NaN || typeof timeout != "number") {
-            timeout = -1
-        }
 
         const data = await importData(
             verbose,
@@ -130,65 +113,84 @@ export const applyDefinition: CmdDefinition = {
             ignoreTypescript,
             ignoreJson,
         )
-
-        const plan = await loadFleetPlan(
+        const settings = validateFleetSettings(
             data,
-            currentHost,
             namePrefix,
-            printData,
         )
-
-        await applyPlan(
-            plan,
-            outFile,
-            renewContainers,
-            destroy,
+        const executer = await DockerExecuter.createExecuter()
+        const res = await getHostResourceInfo(
+            executer,
+            namePrefix,
         )
+        const renew: string[] = [
+            ...renewContainers,
+            ...(
+                await ((cmd as any).task(settings.container, executer))
+            )
+        ]
 
-        if (watch) {
-            let reload: boolean = false
-            let loading: boolean = false
-            console.log("# Press CTRL + C to quit FleetForm! #")
-            const stream = watchConfig(file)
-            stream.forEach(async (value) => {
-                if (reload) {
-                    return
-                }
-                if (loading) {
-                    reload = true
-                    return
-                }
-                loading = true
-                while (reload) {
-                    reload = false
-                    console.log("# Reload FleetForm... #")
-                    const data = await importData(
-                        verbose,
-                        cmd,
-                        file,
-                        ignoreTypescript,
-                        ignoreJson,
+        const task = generateHostTaskSet(
+            res,
+            settings.container,
+            renew,
+            [],
+            namePrefix,
+        )
+        if (printTasks) {
+            console.log("TASKS:\n", task)
+        }
+        for (let index = 0; index < task.length; index++) {
+            const parallelTasks = task[index]
+            await Promise.all(parallelTasks.map(async (task: Task) => {
+                if (taskStat) {
+                    console.log(
+                        " + TASK: " + task.type + ": " +
+                        task.name +
+                        ((task as any).target ? " " + (task as any).target + "..." : "...")
                     )
-
-                    const plan = await loadFleetPlan(
-                        data,
-                        currentHost,
-                        namePrefix,
-                        printData,
-                    )
-
-                    await applyPlan(
-                        plan,
-                        outFile,
-                        renewContainers,
-                        destroy,
-                    )
-                    console.log("# FleetForm reloaded! #")
                 }
-                loading = false
-            })
+                await handleTask(
+                    executer,
+                    task
+                )
+                if (taskStat) {
+                    console.log(
+                        " - " + task.type + ": " +
+                        task.name +
+                        ((task as any).target ? " " + (task as any).target + " done!" : " done!")
+                    )
+                }
+            }))
         }
     }
+}
+
+export async function importData(
+    verbose: boolean,
+    cmd: CmdResult,
+    file: string,
+    ignoreTypescript: boolean,
+    ignoreJson: boolean,
+): Promise<any> {
+    if (verbose) {
+        console.info("# VERBOSE #", {
+            file,
+            ignoreTypescript,
+            ignoreJson,
+            verbose,
+            flags: cmd.flags,
+            flagValues: cmd.valueFlags,
+        })
+    }
+    let data = await importModule(file, {
+        allowJson: !ignoreJson,
+        compileTs: !ignoreTypescript,
+    })
+    console.info("# FLEET CONFIG FOUND #")
+    if (data.default) {
+        data = data.default
+    }
+    return data
 }
 
 export default applyDefinition

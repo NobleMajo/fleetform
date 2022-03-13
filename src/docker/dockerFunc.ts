@@ -1,12 +1,25 @@
 import { VarInputStream, VarStream } from "../lib/varstream"
 import { DockerExecuter } from "./DockerExecuter"
-import { ContainerInfo } from "dockerode"
+import { ContainerInfo, ContainerInspectInfo, NetworkInspectInfo } from "dockerode"
 import { IncomingMessage } from "http"
-import * as Dockerode from "dockerode"
-import { Container } from "./dockerTypes"
+import { Network, Container } from "dockerode"
+import { getContainerCreateSetting, ContainerCreateOptions } from './dockerTypes';
 
 export type RemoveResultName = "deleting" | "deleted" | "ignored" | "warning" | "error"
 export type RemoveResult = [RemoveResultName, string | Error]
+
+export interface PullDate {
+    imageTag: string,
+    id: string,
+    status: string,
+    progress: string,
+    total: number,
+    current: number,
+}
+
+export interface ContainerInfoMap {
+    [key: string]: ContainerInfo
+}
 
 export async function pullNeededImages(
     executor: DockerExecuter,
@@ -33,43 +46,17 @@ export async function pullNeededImages(
     }
 }
 
-export async function createNetworks(
-    executer: DockerExecuter,
-    networks: string[],
-    prefix: string
-): Promise<void> {
-    await Promise.all(
-        networks.map((networkName) => {
-            return createNetwork(
-                executer,
-                networkName,
-                prefix
-            )
-        })
-    )
-}
-
 export async function createNetwork(
     executer: DockerExecuter,
     networkName: string,
-    prefix: string,
+    labels: {
+        [key: string]: string
+    }
 ): Promise<void> {
     await executer.createNetwork({
-        Name: prefix + networkName,
-        Labels: {
-            name: networkName,
-            source: "fleetform",
-        },
+        Name: networkName,
+        Labels: labels,
     })
-}
-
-export interface PullDate {
-    imageTag: string,
-    id: string,
-    status: string,
-    progress: string,
-    total: number,
-    current: number,
 }
 
 export function stringifyPullDate(
@@ -177,46 +164,15 @@ export function pullImage(
     return dataStream.getInputVarStream()
 }
 
-export function createContainers(
-    executer: DockerExecuter,
-    containerMap: {
-        [key: string]: Container
-    },
-    prefix: string,
-): VarInputStream<[string, Dockerode.Container]> {
-    const varStream = new VarStream<[string, Dockerode.Container]>()
-
-    const promises = Object.keys(containerMap)
-        .map(
-            async (containerName) =>
-                varStream.write([
-                    containerName,
-                    await createContainer(
-                        executer,
-                        containerName,
-                        containerMap[containerName],
-                        prefix
-                    )
-                ])
-        )
-
-    Promise.all(promises)
-        .then(() => varStream.end())
-        .catch((err) => varStream.end(err))
-
-    return varStream.getInputVarStream()
-}
-
 export async function createContainer(
     executer: DockerExecuter,
-    name: string,
-    containerConfig: Container,
-    prefix: string,
-): Promise<Dockerode.Container> {
+    options: ContainerCreateOptions,
+): Promise<Container> {
+    const settings = getContainerCreateSetting(options)
     const exposePorts: {
         [containerPort: string]: {}
     } = {}
-    containerConfig.expose.forEach(
+    settings.expose.forEach(
         (port: string) => {
             exposePorts[port] = {}
         }
@@ -224,9 +180,9 @@ export async function createContainer(
     const publishPorts: {
         [containerPort: string]: {}
     } = {}
-    Object.keys(containerConfig.publish).forEach(
+    Object.keys(settings.publish).forEach(
         (containerPort: string) => {
-            const hostTarget = containerConfig.publish[containerPort]
+            const hostTarget = settings.publish[containerPort]
             publishPorts[containerPort] = [
                 {
                     "HostIp": hostTarget[0],
@@ -242,32 +198,28 @@ export async function createContainer(
         [volume: string]: {}
     } = {}
 
-    const volumes2 = Object.keys(containerConfig.volumes)
+    const volumes2 = Object.keys(settings.volumes)
     volumes2.forEach((volume) => {
         volumes[volume] = {}
-        binds.push(volume + ":" + containerConfig.volumes[volume])
+        binds.push(volume + ":" + settings.volumes[volume])
     })
 
     return await executer.createContainer({
-        name: prefix + name,
-        Labels: {
-            name: name,
-            prefix: prefix,
-            source: "fleetform",
-        },
-        Env: Object.keys(containerConfig.envs).map(
+        name: settings.name,
+        Labels: settings.labels,
+        Env: Object.keys(settings.envs).map(
             (key: string) => {
-                return key + "=" + containerConfig.envs[key]
+                return key + "=" + settings.envs[key]
             }
         ),
-        Image: containerConfig.image + ":" + containerConfig.tag,
+        Image: settings.image,
         Volumes: volumes,
         ExposedPorts: exposePorts,
         AttachStdin: false,
         AttachStdout: false,
         AttachStderr: false,
-        Tty: containerConfig.tty,
-        Cmd: containerConfig.args,
+        Tty: settings.tty,
+        Cmd: settings.args,
         OpenStdin: false,
         StdinOnce: false,
         HostConfig: {
@@ -281,186 +233,248 @@ export async function createContainer(
     })
 }
 
-export interface ContainerInfoMap {
-    [key: string]: ContainerInfo
+export async function disconnectAllNetworks(
+    executer: DockerExecuter,
+    info: ContainerInfo,
+): Promise<void> {
+    await Promise.all(
+        Object.values(info.NetworkSettings.Networks).map(
+            async (netInfo) => {
+                if (netInfo.NetworkID.length < 1) {
+                    return
+                }
+                await executer
+                    .getNetwork(netInfo.NetworkID)
+                    .disconnect({
+                        "Container": info.Id,
+                        "Force": true,
+                    })
+            }
+
+        )
+    )
 }
 
-export function removeContainers(
+export async function connect(
     executer: DockerExecuter,
-    include?: string[] | undefined,
-    exclude?: string[] | undefined,
-    prefix?: string,
-    labelKey: string | undefined = "source",
-    labelValue: string | undefined = "fleetform",
-): VarInputStream<RemoveResult> {
-    const varStream = new VarStream<RemoveResult>()
-    executer
-        .listContainers({
-            all: true
-        })
-        .then((networks) => {
-            const promises: Promise<void>[] = []
-            for (
-                let index = 0;
-                index < networks.length;
-                index++
-            ) {
-                try {
-                    const containerInfo = networks[index]
-                    if (containerInfo.Names.length == 0) {
-                        continue
-                    }
-                    let name = containerInfo.Names[0]
-                    if (name.startsWith("/")) {
-                        name = name.substring(1)
-                    }
-                    if (name.length == 0) {
-                        continue
-                    }
-                    if (
-                        labelKey &&
-                        labelValue &&
-                        containerInfo.Labels[labelKey] != labelValue
-                    ) {
-                        varStream.write(["ignored", name])
-                        continue
-                    }
-                    if (prefix) {
-                        if (
-                            !name.startsWith(prefix)
-                        ) {
-                            if (
-                                !include ||
-                                include.includes(
-                                    name.substring(prefix.length)
-                                )
-                            ) {
-                                varStream.write(["ignored", name])
-                                continue
-                            }
-                            if (
-                                exclude &&
-                                exclude.includes(
-                                    name.substring(prefix.length)
-                                )
-                            ) {
-                                varStream.write(["ignored", name])
-                                continue
-                            }
-                        }
-                    }
-                    varStream.write(["deleting", name])
-                    promises.push((async () => {
-                        const container = await executer
-                            .getContainer(containerInfo.Id)
-                        await container.stop()
-                            .catch(() => { })
-                        await container.remove()
-                        varStream.write(["deleted", name])
-                    })())
-                } catch (err) {
-                    varStream.write(["error", err])
+    containerName: string,
+    networkName: string,
+    labels: {
+        [key: string]: string
+    }
+): Promise<void> {
+    const keys = labels ? Object.keys(labels) : undefined
+    const [containers, networks] = await Promise.all([
+        executer.listContainers({
+            all: true,
+        }),
+        executer.listNetworks(),
+    ])
+    await Promise.all(containers.map(async (conInfo) => {
+        let conName = conInfo.Names[0]
+        if (conName.startsWith("/")) {
+            conName = conName.substring(1)
+        }
+        if (conName !== containerName) {
+            return
+        }
+        if (keys) {
+            for (let index = 0; index < keys.length; index++) {
+                const key = keys[index]
+                const value = labels[key]
+                if (conInfo.Labels[key] !== value) {
+                    return
                 }
             }
-            Promise.all(promises)
-                .then(() => varStream.end())
-                .catch((err) => varStream.end(err))
-        })
-
-
-    return varStream.getInputVarStream()
+        }
+        await Promise.all(networks.map(async (netInfo) => {
+            let netName = netInfo.Name
+            if (netName.startsWith("/")) {
+                netName = netName.substring(1)
+            }
+            if (netName !== networkName) {
+                return
+            }
+            if (keys) {
+                for (let index = 0; index < keys.length; index++) {
+                    const key = keys[index]
+                    const value = labels[key]
+                    if (netInfo.Labels[key] !== value) {
+                        return
+                    }
+                }
+            }
+            await executer
+                .getNetwork(netInfo.Id)
+                .connect({
+                    "Container": conInfo.Id,
+                })
+        }))
+    }))
 }
 
-export function removeNetworks(
+export async function detachContainer(
     executer: DockerExecuter,
-    include?: string[] | undefined,
-    exclude?: string[] | undefined,
-    prefix?: string,
-    force: boolean = false,
-    labelKey: string | undefined = "source",
-    labelValue: string | undefined = "fleetform",
-): VarInputStream<RemoveResult> {
-    const varStream = new VarStream<RemoveResult>()
-    executer
-        .listNetworks({
-            all: true
-        })
-        .then((networks) => {
-            const promises: Promise<void>[] = []
-            for (
-                let index = 0;
-                index < networks.length;
-                index++
-            ) {
-                try {
-                    const networkInfo = networks[index]
-                    let name = networkInfo.Name
-                    if (name.startsWith("/")) {
-                        name = name.substring(1)
+    name: string,
+    labels?: {
+        [key: string]: string
+    }
+): Promise<void> {
+    const keys = labels ? Object.keys(labels) : undefined
+    const containerInfo = await executer.listContainers({
+        all: true,
+    })
+
+    await Promise.all(containerInfo.map(
+        async (conInfo) => {
+            let conName = conInfo.Names[0]
+            if (conName.startsWith("/")) {
+                conName = conName.substring(1)
+            }
+            if (conName !== name) {
+                return
+            }
+            if (keys) {
+                for (let index = 0; index < keys.length; index++) {
+                    const key = keys[index]
+                    const value = labels[key]
+                    if (conInfo.Labels[key] !== value) {
+                        return
                     }
-                    if (
-                        name.length == 0 ||
-                        name == "host" ||
-                        name == "none" ||
-                        name == "bridge"
-                    ) {
-                        continue
-                    }
-                    if (
-                        labelKey &&
-                        labelValue &&
-                        networkInfo.Labels[labelKey] != labelValue
-                    ) {
-                        varStream.write(["ignored", name])
-                        continue
-                    }
-                    if (prefix) {
-                        if (
-                            !name.startsWith(prefix)
-                        ) {
-                            if (
-                                !include ||
-                                include.includes(
-                                    name.substring(prefix.length)
-                                )
-                            ) {
-                                varStream.write(["ignored", name])
-                                continue
-                            }
-                            if (
-                                exclude &&
-                                exclude.includes(
-                                    name.substring(prefix.length)
-                                )
-                            ) {
-                                varStream.write(["ignored", name])
-                                continue
-                            }
-                        }
-                    }
-                    varStream.write(["deleting", name])
-                    promises.push((async () => {
-                        const network = executer
-                            .getNetwork(networkInfo.Id)
-                        if (!force) {
-                            const inspectData = await network.inspect()
-                            if (Object.keys(inspectData.Containers).length > 0) {
-                                varStream.write(["warning", "Can't delete network '" + name + "' because containers still connected to it"])
-                                return
-                            }
-                        }
-                        await network.remove()
-                        varStream.write(["deleted", name])
-                    })())
-                } catch (err) {
-                    varStream.write(["error", err])
                 }
             }
-            Promise.all(promises)
-                .then(() => varStream.end())
-                .catch((err) => varStream.end(err))
+            await disconnectAllNetworks(
+                executer,
+                conInfo,
+            )
+        }
+    ))
+}
+
+export async function disconnectAllContainer(
+    network: Network
+): Promise<void> {
+    const info = await network.inspect()
+    if (!info.Containers) {
+        return
+    }
+    await Promise.all(Object.keys(info.Containers).map(
+        (containerId) => network.disconnect({
+            "Container": containerId,
+            "Force": true,
         })
+    ))
+}
 
+export async function removeNetwork(
+    executer: DockerExecuter,
+    name: string,
+    labels?: {
+        [key: string]: string
+    }
+): Promise<void> {
+    const keys = labels ? Object.keys(labels) : undefined
+    const networkInfos = await executer.listNetworks()
 
-    return varStream.getInputVarStream()
+    await Promise.all(networkInfos.map(
+        async (netInfo) => {
+            let netName = netInfo.Name
+            if (netName.startsWith("/")) {
+                netName = netName.substring(1)
+            }
+            if (netName !== name) {
+                return
+            }
+            if (keys) {
+                for (let index = 0; index < keys.length; index++) {
+                    const key = keys[index]
+                    const value = labels[key]
+                    if (netInfo.Labels[key] !== value) {
+                        return
+                    }
+                }
+            }
+            let network: Network = executer.getNetwork(netInfo.Id)
+            await disconnectAllContainer(network)
+            await network.remove()
+        }
+    ))
+}
+
+export async function removeContainer(
+    executer: DockerExecuter,
+    name: string,
+    labels?: {
+        [key: string]: string
+    }
+): Promise<void> {
+    const keys = labels ? Object.keys(labels) : undefined
+    const containerInfo = await executer.listContainers({
+        all: true,
+    })
+
+    await Promise.all(containerInfo.map(
+        async (conInfo) => {
+            let conName = conInfo.Names[0]
+            if (conName.startsWith("/")) {
+                conName = conName.substring(1)
+            }
+            if (conName !== name) {
+                return
+            }
+            if (keys) {
+                for (let index = 0; index < keys.length; index++) {
+                    const key = keys[index]
+                    const value = labels[key]
+                    if (conInfo.Labels[key] !== value) {
+                        return
+                    }
+                }
+            }
+            await disconnectAllNetworks(
+                executer,
+                conInfo
+            )
+            const container = executer.getContainer(conInfo.Id)
+            //await container.stop().catch()
+            await container.remove({
+                force: true
+            })
+        }
+    ))
+}
+
+export async function startContainer(
+    executer: DockerExecuter,
+    name: string,
+    labels?: {
+        [key: string]: string
+    }
+): Promise<void> {
+    const keys = labels ? Object.keys(labels) : undefined
+    const containerInfo = await executer.listContainers({
+        all: true,
+    })
+    await Promise.all(containerInfo.map(
+        async (conInfo) => {
+            let conName = conInfo.Names[0]
+            if (conName.startsWith("/")) {
+                conName = conName.substring(1)
+            }
+            if (conName !== name) {
+                return
+            }
+            if (keys) {
+                for (let index = 0; index < keys.length; index++) {
+                    const key = keys[index]
+                    const value = labels[key]
+                    if (conInfo.Labels[key] !== value) {
+                        return
+                    }
+                }
+            }
+            console.log("start: ", conInfo.Id)
+            await executer.getContainer(conInfo.Id).start()
+        }
+    ))
 }

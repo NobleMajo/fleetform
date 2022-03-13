@@ -30,7 +30,9 @@
     "release": "npm up; npm run build; npm run test; npm publish"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.12",
     "@types/dockerode": "^3.3.1",
+    "@types/express": "^4.17.13",
     "@types/node": "^16.11.26",
     "nodemon": "^2.0.13",
     "ts-node": "^10.4.0",
@@ -38,7 +40,9 @@
   },
   "dependencies": {
     "cmdy": "^1.0.0",
+    "cors": "^2.8.5",
     "docker-modem": "^3.0.3",
-    "dockerode": "^3.3.1"
+    "dockerode": "^3.3.1",
+    "express": "^4.17.3"
   }
 }
