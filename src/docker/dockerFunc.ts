@@ -481,7 +481,6 @@ export async function startContainer(
                     }
                 }
             }
-            console.log("start: ", conInfo.Id)
             await executer.getContainer(conInfo.Id).start()
         }
     ))
