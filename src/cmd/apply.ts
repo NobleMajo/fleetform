@@ -3,6 +3,7 @@ import { formatPath } from "../lib/fs"
 import {
     generateHostTaskSet,
     getHostResourceInfo,
+    getImageHashs,
     handleTask,
     Task,
 } from '../task';
@@ -10,6 +11,8 @@ import { DockerExecuter } from '../docker/DockerExecuter';
 import { validateFleetSettings } from "../fleetform/fleetformFunc";
 import { CmdResult } from 'cmdy';
 import { importModule } from "../lib/node";
+import { printAndPullImage, unescapeUnicode } from "../docker/dockerFunc";
+import { getNeededImages } from '../task';
 
 export const file: Flag = {
     name: "file",
@@ -27,18 +30,6 @@ export const ignoreTypescript: Flag = {
 export const ignoreJson: Flag = {
     name: "ignoreJson",
     description: "Don't parse json files if found at target file.",
-}
-
-export const taskStat: Flag = {
-    name: "taskStat",
-    shorthand: "s",
-    description: "Print if a task starts and stops.",
-}
-
-export const tasks: Flag = {
-    name: "tasks",
-    shorthand: "t",
-    description: "Print needed apply tasks in the console.",
 }
 
 export const namePrefix: Flag = {
@@ -71,6 +62,41 @@ export const renew: Flag = {
     types: ["string"]
 }
 
+export const updateDelayDays: Flag = {
+    name: "updateDelayDays",
+    alias: ["upid"],
+    description: "Update all images every x days.",
+    types: ["number"]
+}
+
+export const updateDelayHours: Flag = {
+    name: "updateDelayHours",
+    alias: ["upih"],
+    description: "Update all images every x hours.",
+    types: ["number"]
+}
+
+export const updateDelayMinutes: Flag = {
+    name: "updateDelayMinutes",
+    alias: ["upim"],
+    description: "Update all images every x minutes.",
+    types: ["number"]
+}
+
+export const updateDelaySeconds: Flag = {
+    name: "updateDelaySeconds",
+    alias: ["upis"],
+    description: "Update all images every x seconds.",
+    types: ["number"]
+}
+
+export const cacheTsOutput: Flag = {
+    name: "cacheTsOutput",
+    alias: ["cto", "cacheTs"],
+    shorthand: "c",
+    description: "Don't delete typescript compile output files after loading them.",
+}
+
 export const applyDefinition: CmdDefinition = {
     name: "apply",
     alias: ["appl", "app", "pply"],
@@ -82,10 +108,13 @@ export const applyDefinition: CmdDefinition = {
         ignoreJson,
         namePrefix,
         outFile,
-        tasks,
-        taskStat,
         renew,
         destroy,
+        cacheTsOutput,
+        updateDelayDays,
+        updateDelayHours,
+        updateDelayMinutes,
+        updateDelaySeconds,
     ],
     cmds: [
     ],
@@ -101,10 +130,13 @@ export const applyDefinition: CmdDefinition = {
         const ignoreTypescript = cmd.flags.includes("ignorets")
         const ignoreJson = cmd.flags.includes("ignorejson")
         const verbose = cmd.flags.includes("verbose")
-        const printTasks = cmd.flags.includes("tasks")
-        const taskStat = cmd.flags.includes("taskstat")
+        const cacheTsOutput = cmd.flags.includes("cachetsoutput")
         const namePrefix = cmd.valueFlags.nameprefix[0]
         const renewContainers = cmd.valueFlags.renew
+        const updateDelayDays = Number(cmd.valueFlags.updatedelaydays[0])
+        const updateDelayHours = Number(cmd.valueFlags.updatedelayhours[0])
+        const updateDelayMinutes = Number(cmd.valueFlags.updatedelayminutes[0])
+        const updateDelaySeconds = Number(cmd.valueFlags.updatedelayseconds[0])
 
         const data = await importData(
             verbose,
@@ -112,6 +144,7 @@ export const applyDefinition: CmdDefinition = {
             file,
             ignoreTypescript,
             ignoreJson,
+            !cacheTsOutput
         )
         const settings = validateFleetSettings(
             data,
@@ -131,38 +164,125 @@ export const applyDefinition: CmdDefinition = {
             )
         ]
 
-        const task = generateHostTaskSet(
+        const neededImages = getNeededImages(
+            settings.container
+        )
+        for (let index = 0; index < neededImages.length; index++) {
+            await printAndPullImage(
+                executer,
+                neededImages[index]
+            )
+        }
+
+        const imageHashs = await getImageHashs(
+            executer,
+            neededImages
+        )
+
+        const tasks = generateHostTaskSet(
             res,
             settings.container,
+            imageHashs,
             renew,
             [],
             namePrefix,
         )
-        if (printTasks) {
-            console.log("TASKS:\n", task)
-        }
-        for (let index = 0; index < task.length; index++) {
-            const parallelTasks = task[index]
+        verbose && console.log("TASKS:\n", tasks)
+        console.log("===== START TASKS =====")
+        let i: number = 0
+        !verbose && tasks.forEach(
+            (parallelTasks) => parallelTasks.forEach(
+                () => process.stdout.write("O")
+            )
+        )
+        !verbose && process.stdout.write(unescapeUnicode("\\u001b[1000D"))
+        for (let index = 0; index < tasks.length; index++) {
+            const parallelTasks = tasks[index]
+            verbose && console.log("START PARALLEL TASK SET (" + parallelTasks.length + "):")
+            verbose && parallelTasks.forEach(
+                (task: Task) => console.log(
+                    " - " +
+                    task.type.toUpperCase() + " '" +
+                    task.name +
+                    (
+                        (task as any).target ?
+                            "<-'" + (task as any).target :
+                            "'"
+                    ) +
+                    "'..."
+                )
+            )
+            verbose && console.log("WAIT FOR PARALLEL TASK SET:")
             await Promise.all(parallelTasks.map(async (task: Task) => {
-                if (taskStat) {
-                    console.log(
-                        " + TASK: " + task.type + ": " +
-                        task.name +
-                        ((task as any).target ? " " + (task as any).target + "..." : "...")
-                    )
-                }
                 await handleTask(
                     executer,
                     task
                 )
-                if (taskStat) {
+                verbose ?
                     console.log(
-                        " - " + task.type + ": " +
+                        " - " +
+                        task.type.toUpperCase() + " '" +
                         task.name +
-                        ((task as any).target ? " " + (task as any).target + " done!" : " done!")
+                        "'" +
+                        (
+                            (task as any).target ?
+                                "<-'" + (task as any).target + "'" :
+                                ""
+                        ) +
+                        "!"
+                    ) :
+                    process.stdout.write("X")
+            }))
+        }
+        !verbose && console.log(" ")
+        console.log("===== TASKS FINISHED =====")
+
+        let updateDelayMillis: number = 0
+        if (!isNaN(updateDelayDays)) {
+            updateDelayMillis += updateDelayDays * 1000 * 60 * 60 * 24
+        }
+        if (!isNaN(updateDelayHours)) {
+            updateDelayMillis += updateDelayHours * 1000 * 60 * 60
+        }
+        if (!isNaN(updateDelayMinutes)) {
+            updateDelayMillis += updateDelayMinutes * 1000 * 60
+        }
+        if (!isNaN(updateDelaySeconds)) {
+            updateDelayMillis += updateDelaySeconds * 1000
+        }
+        if (
+            updateDelayMillis > 0
+        ) {
+            const date = new Date(updateDelayMillis)
+            let day = Math.round(date.getHours() / 24)
+            let hours = date.getHours() % 24
+            const time = (
+                (day > 0 ? day + "d " : "") +
+                (
+                    hours > 0 || date.getMinutes() > 0 ?
+                        (hours < 10 ? "0" + hours : hours) + ":" +
+                        (date.getMinutes() < 10 ? "0" + date.getMinutes() : date.getMinutes()) :
+                        ""
+                ) +
+                (date.getSeconds() > 0 ? " " + date.getSeconds() + "s" : "")
+            )
+            if (updateDelayMillis < 60 * 1000) {
+                throw new Error("The value of 'updateDelay' needs to be minimum 1 minute!\nThe current value is: " + time)
+            }
+            console.log("FleetForm is running in update interval mode!")
+            console.log("Interval time: " + time)
+            const pullInterval = async () => {
+                for (let index = 0; index < neededImages.length; index++) {
+                    await printAndPullImage(
+                        executer,
+                        neededImages[index],
                     )
                 }
-            }))
+                console.log("FleetForm is running in update interval mode!")
+                console.log("Interval time: " + time)
+                setTimeout(() => pullInterval(), updateDelayMillis)
+            }
+            setTimeout(() => pullInterval(), updateDelayMillis)
         }
     }
 }
@@ -173,6 +293,7 @@ export async function importData(
     file: string,
     ignoreTypescript: boolean,
     ignoreJson: boolean,
+    deleteCompiledOutput: boolean,
 ): Promise<any> {
     if (verbose) {
         console.info("# VERBOSE #", {
@@ -187,6 +308,7 @@ export async function importData(
     let data = await importModule(file, {
         allowJson: !ignoreJson,
         compileTs: !ignoreTypescript,
+        deleteCompiledOutput: deleteCompiledOutput,
     })
     console.info("# FLEET CONFIG FOUND #")
     if (data.default) {

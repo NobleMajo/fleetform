@@ -1,4 +1,4 @@
-import { ContainerMap, ContainerPlan } from './fleetform/fleetformTypes';
+import { ContainerMap, ContainerPlan, ContainerOptions } from './fleetform/fleetformTypes';
 import { DockerExecuter } from './docker/DockerExecuter';
 import {
     connect,
@@ -10,16 +10,11 @@ import {
     removeNetwork,
     startContainer
 } from './docker/dockerFunc';
-import { Container } from 'dockerode';
+import { ImageInspectInfo } from 'dockerode';
 import * as crypto from "crypto"
 
 export interface BaseTask {
     type: string,
-    name: string,
-}
-
-export interface PullImageTask extends BaseTask {
-    type: "image.pull",
     name: string,
 }
 
@@ -60,8 +55,7 @@ export interface AttachNetworkTask extends BaseTask {
     target: string,
 }
 
-export type Task = PullImageTask |
-    StartContainerTask |
+export type Task = StartContainerTask |
     CreateContainerTask |
     DetachContainerTask |
     DeleteContainerTask |
@@ -75,10 +69,48 @@ export interface HostTaskSet {
     [host: string]: TaskSet
 }
 
+export function getFullContainerImage(container: ContainerOptions): string {
+    return container.image + ":" + (container.tag ?? "latest")
+}
+
+export interface ImageHash {
+    [imageTag: string]: string
+}
+
+export function getNeededImages(
+    containerMap: ContainerMap
+): string[] {
+    return Object.values(containerMap)
+        .filter((c) => c.enabled)
+        .map((c) => getFullContainerImage(c))
+}
+
+export async function getImageHashs(
+    executer: DockerExecuter,
+    imageTags: string[]
+): Promise<ImageHash> {
+    const hashs: ImageHash = {}
+    const data = await Promise.all(
+        imageTags.map(
+            async (imageTag): Promise<[string, ImageInspectInfo]> => [
+                imageTag,
+                await executer.getImage(imageTag).inspect()
+            ]
+        )
+    )
+    data.map((v) => {
+        hashs[v[0]] = v[1].Id
+    })
+    return hashs
+}
+
 export interface HostResourceInfo {
     containerNames: string[],
     networkNames: string[],
     containerHash: {
+        [name: string]: string
+    },
+    containerImageHash: {
         [name: string]: string
     },
 }
@@ -94,6 +126,7 @@ export async function getHostResourceInfo(
         containerNames: [],
         networkNames: [],
         containerHash: {},
+        containerImageHash: {},
     }
     const [container, networks] = await Promise.all([
         executer.listContainers({
@@ -115,6 +148,7 @@ export async function getHostResourceInfo(
                 name = name.substring(prefix.length)
                 stat.containerNames.push(name)
                 stat.containerHash[name] = containerInfo.Labels[hashKey] ?? ""
+                stat.containerImageHash[name] = containerInfo.ImageID
             }
         }
     })
@@ -151,7 +185,9 @@ export function filterDoubleValues(
     })
 }
 
-export function hashContianerPlan(containerPlan: ContainerPlan): string {
+export function hashContianerPlan(
+    containerPlan: ContainerPlan
+): string {
     return crypto
         .createHash('sha1')
         .update(
@@ -164,6 +200,7 @@ export function hashContianerPlan(containerPlan: ContainerPlan): string {
 export function generateHostTaskSet(
     res: HostResourceInfo,
     containerMap: ContainerMap,
+    imageHashs: ImageHash,
     renewContainerNames: string[],
     renewNetworkNames: string[],
     prefix: string,
@@ -171,6 +208,21 @@ export function generateHostTaskSet(
     const containerHashs: {
         [name: string]: string
     } = {}
+
+    Object.keys(res.containerImageHash).forEach(
+        (containerName) => {
+            const imageTag = getFullContainerImage(
+                containerMap[containerName]
+            )
+
+            if (
+                res.containerImageHash[containerName] !=
+                imageHashs[imageTag]
+            ) {
+                renewContainerNames.push(containerName)
+            }
+        }
+    )
 
     res.containerNames = filterDoubleValues(
         res.containerNames,
@@ -251,22 +303,10 @@ export function generateHostTaskSet(
 
     const images = filterDoubleValues(
         createContainerNames.map(
-            (containerName) =>
-                containerMap[containerName].image + ":" +
-                (containerMap[containerName].tag ?? "latest")
+            (containerName) => getFullContainerImage(
+                containerMap[containerName]
+            )
         )
-    )
-
-    // add all needed images pull tasts
-    images.forEach(
-        (image) => {
-            tasks.push([
-                {
-                    type: "image.pull",
-                    name: image,
-                }
-            ])
-        }
     )
 
     // add delete container tasks
@@ -319,19 +359,21 @@ export function generateHostTaskSet(
     ))
 
     // add attach network tasks for each container
+    const attachTasks: AttachNetworkTask[] = []
     containerNames.map((containerName) => {
         // add attach network tasks
-        tasks.push(containerMap[containerName].networks.map(
-            (networkName): AttachNetworkTask => {
-                return {
+        containerMap[containerName].networks
+            .forEach((networkName) => {
+                attachTasks.push({
                     type: "network.attach",
                     name: prefix + networkName,
                     target: prefix + containerName,
 
-                }
-            }
-        ))
+                })
+            })
     })
+    tasks.push(attachTasks)
+
     // add start container tasks
     tasks.push(createContainerNames.map(
         (containerName): StartContainerTask => {
@@ -355,6 +397,7 @@ export async function containerCreate(
         {
             ...containerPlan,
             name: name,
+            image: getFullContainerImage(containerPlan),
             labels: {
                 name: name,
                 source: "fleetform",
@@ -449,12 +492,7 @@ export async function handleTask(
     executer: DockerExecuter,
     task: Task,
 ): Promise<void> {
-    if (task.type == "image.pull") {
-        await printAndPullImage(
-            executer,
-            task.name
-        )
-    } else if (task.type == "container.create") {
+    if (task.type == "container.create") {
         await containerCreate(executer, task.name, task.plan)
     } else if (task.type == "container.start") {
         await containerStart(executer, task.name)

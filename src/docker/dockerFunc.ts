@@ -120,8 +120,15 @@ export async function printAndPullImage(
 
     let lastLines: number = 0
     msgStream.forEach((msg) => {
+        let reset = ""
+        let i: number = 0
+        while (i < lastLines) {
+            reset += unescapeUnicode("\\u001b[2K") +
+                unescapeUnicode("\\u001b[1A")
+            i++
+        }
         process.stdout.write(
-            unescapeUnicode("\\u001b[" + lastLines + "A") +
+            reset +
             msg + "\n"
         )
         lastLines = msg.split("\n").length
@@ -249,6 +256,7 @@ export async function disconnectAllNetworks(
                         "Container": info.Id,
                         "Force": true,
                     })
+                    .catch(() => { })
             }
 
         )
@@ -362,7 +370,7 @@ export async function disconnectAllContainer(
         (containerId) => network.disconnect({
             "Container": containerId,
             "Force": true,
-        })
+        }).catch(() => { })
     ))
 }
 

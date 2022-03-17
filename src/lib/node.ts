@@ -414,6 +414,7 @@ export interface ImportModuleOptions extends CompileOptions {
     jsSuffix?: string,
     jsonSuffix?: string,
     allowJson?: boolean,
+    deleteCompiledOutput?: boolean,
 }
 
 export interface ImportModuleSettings extends ImportModuleOptions {
@@ -427,6 +428,7 @@ export interface ImportModuleSettings extends ImportModuleOptions {
     jsSuffix: string,
     jsonSuffix: string,
     allowJson: boolean,
+    deleteCompiledOutput: boolean,
 }
 
 export const defaultImportModuleSettings: ImportModuleSettings = {
@@ -440,6 +442,7 @@ export const defaultImportModuleSettings: ImportModuleSettings = {
     jsSuffix: ".js",
     jsonSuffix: ".json",
     allowJson: true,
+    deleteCompiledOutput: false,
 }
 
 export async function importModule(
@@ -528,7 +531,7 @@ export async function importModule(
             }
             return require(formatPath(packageData.main, modulePath))
         } finally {
-            if (del) {
+            if (del && settings.deleteCompiledOutput) {
                 del()
             }
         }
@@ -599,7 +602,7 @@ export async function importModule(
             }
             return require(formatPath(modulePath + settings.jsSuffix))
         } finally {
-            if (del) {
+            if (del && settings.deleteCompiledOutput) {
                 await del()
             }
         }

@@ -4,15 +4,6 @@ import { importModule } from "../lib/node";
 import * as express from "express"
 import * as cors from "cors"
 import {
-    file,
-    ignoreTypescript,
-    ignoreJson,
-    namePrefix,
-    outFile,
-    tasks,
-    taskStat,
-    destroy,
-    renew,
     applyDefinition
 } from "./apply";
 import { printAndPullImage } from "../docker/dockerFunc";
@@ -43,15 +34,7 @@ export const apiDefinition: CmdDefinition = {
     description: "Run fleetform in api mode.",
     details: "Run fleetform as webapi where you can update images and renew containers.",
     flags: [
-        file,
-        ignoreTypescript,
-        ignoreJson,
-        namePrefix,
-        outFile,
-        tasks,
-        taskStat,
-        renew,
-        destroy,
+        ...applyDefinition.flags,
         port,
         key,
     ],
