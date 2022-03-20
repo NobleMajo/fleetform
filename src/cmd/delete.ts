@@ -13,54 +13,15 @@ import { DockerExecuter } from '../docker/DockerExecuter';
 import { validateFleetSettings } from "../fleetform/fleetformFunc";
 import { CmdResult } from 'cmdy';
 import { importModule } from "../lib/node";
-import { printAndPullImage, unescapeUnicode } from "../docker/dockerFunc";
-
-export const file: Flag = {
-    name: "file",
-    shorthand: "f",
-    description: "The path to a file or a folder with a fleet.json, js or ts file!",
-    types: ["string"],
-}
-
-export const ignoreTypescript: Flag = {
-    name: "ignoreTs",
-    alias: ["ignoreTypescript"],
-    description: "Don't compile typescript files/projects if found at target file/folder.",
-}
-
-export const ignoreJson: Flag = {
-    name: "ignoreJson",
-    description: "Don't parse json files if found at target file.",
-}
-
-export const namePrefix: Flag = {
-    name: "namePrefix",
-    alias: ["pre", "prefix"],
-    description: "Set the container and network prefix (default: 'ff-').",
-    types: ["string"],
-    default: "ff_"
-}
-
-export const outFile: Flag = {
-    name: "outFile",
-    shorthand: "o",
-    description: "Export the parsed fleetform data json into a file.",
-    types: ["string"],
-}
-
-export const cacheTsOutput: Flag = {
-    name: "cacheTsOutput",
-    alias: ["cto", "cacheTs"],
-    shorthand: "c",
-    description: "Don't delete typescript compile output files after loading them.",
-}
-
-export const dontPruneImages: Flag = {
-    name: "dontPruneImages",
-    alias: ["dontPruneImage", "dp", "dontPrune"],
-    shorthand: "p",
-    description: "Don't prune unused images after work.",
-}
+import { unescapeUnicode } from "../docker/dockerFunc";
+import {
+    file,
+    ignoreTypescript,
+    ignoreJson,
+    namePrefix,
+    cacheTsOutput,
+    dontPruneImages,
+} from "./apply";
 
 export const deleteDefinition: CmdDefinition = {
     name: "delete",
@@ -72,7 +33,6 @@ export const deleteDefinition: CmdDefinition = {
         ignoreTypescript,
         ignoreJson,
         namePrefix,
-        outFile,
         cacheTsOutput,
         dontPruneImages,
     ],

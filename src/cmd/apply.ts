@@ -36,7 +36,7 @@ export const ignoreJson: Flag = {
 export const namePrefix: Flag = {
     name: "namePrefix",
     alias: ["pre", "prefix"],
-    description: "Set the container and network prefix (default: 'ff-').",
+    description: "Set the container and network prefix (default: 'ff_').",
     types: ["string"],
     default: "ff_"
 }

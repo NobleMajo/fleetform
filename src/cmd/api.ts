@@ -24,7 +24,6 @@ export const key: Flag = {
     alias: ["apikey"],
     shorthand: "a",
     types: ["string"],
-    required: true,
     description: "Key that you need to access the api.",
 }
 
