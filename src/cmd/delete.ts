@@ -1,13 +1,13 @@
+
 import { Flag, CmdDefinition } from "cmdy"
 import { formatPath } from "../lib/fs"
 import {
-    generateApplyTaskSet,
-    getHostResourceInfo,
-    getImageHashs,
-    handleTask,
-    getNeededImages,
-    Task,
     cleanDocker,
+    generateDeleteTaskSet,
+    getHostResourceInfo,
+    getNeededImages,
+    handleTask,
+    Task,
 } from '../task';
 import { DockerExecuter } from '../docker/DockerExecuter';
 import { validateFleetSettings } from "../fleetform/fleetformFunc";
@@ -41,40 +41,11 @@ export const namePrefix: Flag = {
     default: "ff_"
 }
 
-export const renew: Flag = {
-    name: "renew",
-    alias: ["re", "ren", "rene"],
-    shorthand: "r",
-    description: "Define containers that should be renewed.",
-    types: ["string"]
-}
-
-export const updateDelayDays: Flag = {
-    name: "updateDelayDays",
-    alias: ["upid"],
-    description: "Update all images every x days.",
-    types: ["number"]
-}
-
-export const updateDelayHours: Flag = {
-    name: "updateDelayHours",
-    alias: ["upih"],
-    description: "Update all images every x hours.",
-    types: ["number"]
-}
-
-export const updateDelayMinutes: Flag = {
-    name: "updateDelayMinutes",
-    alias: ["upim"],
-    description: "Update all images every x minutes.",
-    types: ["number"]
-}
-
-export const updateDelaySeconds: Flag = {
-    name: "updateDelaySeconds",
-    alias: ["upis"],
-    description: "Update all images every x seconds.",
-    types: ["number"]
+export const outFile: Flag = {
+    name: "outFile",
+    shorthand: "o",
+    description: "Export the parsed fleetform data json into a file.",
+    types: ["string"],
 }
 
 export const cacheTsOutput: Flag = {
@@ -91,22 +62,18 @@ export const dontPruneImages: Flag = {
     description: "Don't prune unused images after work.",
 }
 
-export const applyDefinition: CmdDefinition = {
-    name: "apply",
-    alias: ["appl", "app", "pply"],
-    description: "Applys the fleetplan container infrstructure.",
+export const deleteDefinition: CmdDefinition = {
+    name: "delete",
+    alias: ["delet", "dele", "del"],
+    description: "Delete the fleetplan container infrstructure.",
     details: "Load and validate the fleet-config, creates and print a fleet-plan and test the defined host connections.",
     flags: [
         file,
         ignoreTypescript,
         ignoreJson,
         namePrefix,
-        renew,
+        outFile,
         cacheTsOutput,
-        updateDelayDays,
-        updateDelayHours,
-        updateDelayMinutes,
-        updateDelaySeconds,
         dontPruneImages,
     ],
     cmds: [
@@ -126,11 +93,6 @@ export const applyDefinition: CmdDefinition = {
         const cacheTsOutput = cmd.flags.includes("cachetsoutput")
         const dontPruneImages = cmd.flags.includes("dontpruneimages")
         const namePrefix = cmd.valueFlags.nameprefix[0]
-        const renewContainers = cmd.valueFlags.renew
-        const updateDelayDays = Number(cmd.valueFlags.updatedelaydays[0])
-        const updateDelayHours = Number(cmd.valueFlags.updatedelayhours[0])
-        const updateDelayMinutes = Number(cmd.valueFlags.updatedelayminutes[0])
-        const updateDelaySeconds = Number(cmd.valueFlags.updatedelayseconds[0])
 
         const data = await importData(
             verbose,
@@ -144,43 +106,15 @@ export const applyDefinition: CmdDefinition = {
             data,
             namePrefix,
         )
-        //TODO multihost feature for apply
+        //TODO multihost feature for delete
         const executer = await DockerExecuter.createExecuter()
         const res = await getHostResourceInfo(
             executer,
             namePrefix,
         )
-        const renew: string[] = [
-            ...renewContainers,
-            ...(
-                cmd && typeof (cmd as any).task == "function" ?
-                    await ((cmd as any).task(settings.container, executer)) :
-                    []
-            )
-        ]
 
-        const neededImages = getNeededImages(
-            settings.container
-        )
-        verbose && console.log("Pull images: ", neededImages)
-        for (let index = 0; index < neededImages.length; index++) {
-            await printAndPullImage(
-                executer,
-                neededImages[index]
-            )
-        }
-
-        const imageHashs = await getImageHashs(
-            executer,
-            neededImages
-        )
-
-        const tasks = generateApplyTaskSet(
+        const tasks = generateDeleteTaskSet(
             res,
-            settings.container,
-            imageHashs,
-            renew,
-            [],
             namePrefix,
         )
         if (tasks.length > 0) {
@@ -241,55 +175,6 @@ export const applyDefinition: CmdDefinition = {
             await cleanDocker(executer)
             console.log("Unused images pruned!")
         }
-
-        if (cmd.cmd.name == "api") {
-            return
-        }
-        let updateDelayMillis: number = 0
-        if (!isNaN(updateDelayDays)) {
-            updateDelayMillis += updateDelayDays * 1000 * 60 * 60 * 24
-        }
-        if (!isNaN(updateDelayHours)) {
-            updateDelayMillis += updateDelayHours * 1000 * 60 * 60
-        }
-        if (!isNaN(updateDelayMinutes)) {
-            updateDelayMillis += updateDelayMinutes * 1000 * 60
-        }
-        if (!isNaN(updateDelaySeconds)) {
-            updateDelayMillis += updateDelaySeconds * 1000
-        }
-        if (updateDelayMillis > 0) {
-            const date = new Date(updateDelayMillis)
-            let day = Math.round(date.getHours() / 24)
-            let hours = date.getHours() % 24
-            const time = (
-                (day > 0 ? day + "d " : "") +
-                (
-                    hours > 0 || date.getMinutes() > 0 ?
-                        (hours < 10 ? "0" + hours : hours) + ":" +
-                        (date.getMinutes() < 10 ? "0" + date.getMinutes() : date.getMinutes()) :
-                        ""
-                ) +
-                (date.getSeconds() > 0 ? " " + date.getSeconds() + "s" : "")
-            )
-            if (updateDelayMillis < 60 * 1000) {
-                throw new Error("The value of 'updateDelay' needs to be minimum 1 minute!\nThe current value is: " + time)
-            }
-            console.log("FleetForm is running in update interval mode!")
-            console.log("Interval time: " + time)
-            const pullInterval = async () => {
-                for (let index = 0; index < neededImages.length; index++) {
-                    await printAndPullImage(
-                        executer,
-                        neededImages[index],
-                    )
-                }
-                console.log("FleetForm is running in update interval mode!")
-                console.log("Interval time: " + time)
-                setTimeout(() => pullInterval(), updateDelayMillis)
-            }
-            setTimeout(() => pullInterval(), updateDelayMillis)
-        }
     }
 }
 
@@ -323,4 +208,4 @@ export async function importData(
     return data
 }
 
-export default applyDefinition
+export default deleteDefinition

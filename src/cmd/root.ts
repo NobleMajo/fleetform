@@ -1,6 +1,7 @@
 import { Flag, CmdDefinition, CmdParserOptions } from "cmdy"
-import apply from "./apply"
-import api from './api';
+import applyDefinition from "./apply"
+import apiDefinition from './api';
+import deleteDefinition from "./delete"
 
 export const verbose: Flag = {
     name: "verbose",
@@ -15,8 +16,9 @@ const root: CmdDefinition = {
     flags: [
     ],
     cmds: [
-        apply,
-        api
+        applyDefinition,
+        apiDefinition,
+        deleteDefinition,
     ],
 }
 

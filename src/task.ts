@@ -80,9 +80,24 @@ export interface ImageHash {
 export function getNeededImages(
     containerMap: ContainerMap
 ): string[] {
-    return Object.values(containerMap)
-        .filter((c) => c.enabled)
-        .map((c) => getFullContainerImage(c))
+    return filterDoubleValues(
+        Object.values(containerMap)
+            .filter((c) => c.enabled)
+            .map((c) => getFullContainerImage(c))
+    )
+}
+
+export async function cleanDocker(
+    executer: DockerExecuter,
+    danglingImages: boolean = false,
+): Promise<void> {
+    await Promise.all([
+        executer.pruneImages({
+            dangling: danglingImages ? 1 : 0
+        }),
+        executer.pruneVolumes({}),
+        executer.pruneNetworks({}),
+    ])
 }
 
 export async function getImageHashs(
@@ -197,7 +212,7 @@ export function hashContianerPlan(
         .substring(4, 20)
 }
 
-export function generateHostTaskSet(
+export function generateApplyTaskSet(
     res: HostResourceInfo,
     containerMap: ContainerMap,
     imageHashs: ImageHash,
@@ -380,6 +395,34 @@ export function generateHostTaskSet(
             return {
                 type: "container.start",
                 name: prefix + containerName,
+            }
+        }
+    ))
+
+    return tasks.filter((v) => v.length > 0)
+}
+
+export function generateDeleteTaskSet(
+    res: HostResourceInfo,
+    prefix: string,
+): TaskSet {
+    const tasks: TaskSet = []
+
+    // add delete container tasks
+    tasks.push(res.containerNames.map(
+        (containerName): DeleteContainerTask => {
+            return {
+                type: "container.delete",
+                name: prefix + containerName,
+            }
+        }
+    ))
+    // add delete network tasks
+    tasks.push(res.networkNames.map(
+        (networkName): DeleteNetworkTask => {
+            return {
+                type: "network.delete",
+                name: prefix + networkName,
             }
         }
     ))
