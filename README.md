@@ -26,6 +26,10 @@
   - [ff apply -h](#ff-apply--h)
   - [ff destroy -h](#ff-destroy--h)
 - [Naming](#naming)
+- [npm scripts](#npm-scripts)
+  - [use](#use)
+  - [base scripts](#base-scripts)
+  - [watch mode](#watch-mode)
 
 # about
 A Container IAC (Infrastructure as Code) deploy tool.  
@@ -190,10 +194,41 @@ Run 'fleetform destory --help' for more informations on a command.
 The word "fleet" from the name refers to ships, or rather container ships.
 "from" is a verb with the context to form something.
 
+# npm scripts
+The npm scripts are made for linux but can also work on mac and windows.
+## use
+You can run npm scripts in the project folder like this:
+```sh
+npm run <scriptname>
+```
+Here is an example:
+```sh
+npm run test
+```
+
+## base scripts
+You can find all npm scripts in the `package.json` file.
+This is a list of the most important npm scripts:
+ - test // test the app
+ - build // build the app
+ - exec // run the app
+ - start // build and run the app
+
+## watch mode
+Like this example you can run all npm scripts in watch mode:
+```sh
+npm run start:watch
+```
+
+# contribution
+ - 1. fork the project
+ - 2. implement your idea
+ - 3. create a pull/merge request
+```ts
+// please create seperated forks for different kind of featues/ideas/structure changes/implementations
+```
+
 ---
-
-*by HalsMaulMajo (supported by CoreUnit.NET)*
-
-
-
+**cya ;3**  
+*by majo418*
 
