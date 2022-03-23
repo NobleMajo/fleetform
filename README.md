@@ -30,6 +30,7 @@
   - [use](#use)
   - [base scripts](#base-scripts)
   - [watch mode](#watch-mode)
+- [contribution](#contribution)
 
 # about
 A Container IAC (Infrastructure as Code) deploy tool.  
@@ -89,7 +90,7 @@ Fleetform pulls needed images, stop all old containers and deploy the new plan.
 ## install fleetform
 This creates a "fleetform" folder
 ```sh
-git clone git@github.com:HalsMaulMajo/FleetForm.git fleetform
+git clone git@github.com:majo418/FleetForm.git fleetform
 cd fleetform && npm i && npm i -g .
 ```
 
@@ -132,7 +133,7 @@ plan    Load and validate the fleet-config and creates and print a fleet-plan.
 Details:
 You can use Fleetform to deploy a whole infrasturcture on multiple host/servers with one command.
 
-! Fleetform by HalsMaulMajo (supported by CoreUnit.NET) !
+! Fleetform by majo418 (supported by CoreUnit.NET) !
 ```
 
 ## ff apply -h
@@ -160,7 +161,7 @@ Options:
 Details:
 Load and validate the fleet-config, creates and print a fleet-plan and test the defined host connections.
 
-! Fleetform by HalsMaulMajo (supported by CoreUnit.NET) !
+! Fleetform by majo418 (supported by CoreUnit.NET) !
 ```
 
 ## ff destroy -h
@@ -185,7 +186,7 @@ Options:
 
 Run 'fleetform destory --help' for more informations on a command.
 
-! Fleetform by HalsMaulMajo (supported by CoreUnit.NET) !
+! Fleetform by majo418 (supported by CoreUnit.NET) !
 ```
 
 # Naming
