@@ -38,13 +38,13 @@
     "@types/cors": "^2.8.12",
     "@types/dockerode": "^3.3.1",
     "@types/express": "^4.17.13",
-    "@types/node": "^16.11.26",
+    "@types/node": "^17.0.23",
     "nodemon": "^2.0.13",
     "ts-node": "^10.4.0",
-    "typescript": "^4.5.5"
+    "typescript": "^4.6.3"
   },
   "dependencies": {
-    "cmdy": "^1.0.0",
+    "cmdy": "^1.2.2",
     "cors": "^2.8.5",
     "docker-modem": "^3.0.3",
     "dockerode": "^3.3.1",
