@@ -1,6 +1,6 @@
 import { Flag, CmdDefinition, CmdParserOptions } from "cmdy"
 import applyDefinition from "./apply"
-import apiDefinition from './api';
+import apiDefinition from "./api";
 import deleteDefinition from "./delete"
 
 export const verbose: Flag = {

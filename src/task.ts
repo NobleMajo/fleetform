@@ -1,16 +1,19 @@
-import { ContainerMap, ContainerPlan, ContainerOptions } from './fleetform/fleetformTypes';
-import { DockerExecuter } from './docker/DockerExecuter';
+import {
+    ContainerMap,
+    ContainerPlan,
+    ContainerOptions
+} from "./types"
+import { DockerExecuter } from "./docker/executer"
 import {
     connect,
     createContainer,
     createNetwork,
     detachContainer,
-    printAndPullImage,
     removeContainer,
     removeNetwork,
-    startContainer
-} from './docker/dockerFunc';
-import { ImageInspectInfo } from 'dockerode';
+    startContainer,
+} from "./docker/func"
+import { ImageInspectInfo } from "dockerode"
 import * as crypto from "crypto"
 
 export interface BaseTask {

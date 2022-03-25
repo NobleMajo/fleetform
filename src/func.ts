@@ -2,11 +2,9 @@ import {
     ContainerPlan,
     ContainerMap,
     FleetSettings,
-    FleetValidateError,
-} from
-    "./fleetformTypes"
-import { DockerExecuterOptions } from "../docker/dockerTypes"
-import { DockerExecuter } from "../docker/DockerExecuter"
+} from "./types"
+import { DockerExecuterOptions } from "./docker/types"
+import { DockerExecuter } from "./docker/executer"
 
 export interface ConnectionInfo {
     type: "error" | "success",
@@ -32,19 +30,19 @@ export function parseContainer(
         Array.isArray(obj) ||
         obj == null
     ) {
-        throw new FleetValidateError("Container '" + container + "' is not a object!")
+        throw new Error("Container '" + container + "' is not a object!")
     }
     const keys = Object.keys(obj)
     keys.forEach((key: string) => {
         if (!allowedKeys.includes(key)) {
-            throw new FleetValidateError("The key '" + key + "' is not allowed for a container '" + container + "'!")
+            throw new Error("The key '" + key + "' is not allowed for a container '" + container + "'!")
         }
     })
     if (typeof obj.enabled != "boolean") {
         obj.enabled = true
     }
     if (typeof obj.image != "string") {
-        throw new FleetValidateError("The key 'image' of container '" + container + "' need to be a string!")
+        throw new Error("The key 'image' of container '" + container + "' need to be a string!")
     }
     if (typeof obj.tag != "string") {
         obj.tag = "latest"
@@ -144,7 +142,7 @@ export function parseContainerMap(
         Array.isArray(obj) ||
         obj == null
     ) {
-        throw new FleetValidateError("'container' is not a object!")
+        throw new Error("'container' is not a object!")
     }
     const map: ContainerMap = {}
     Object.keys(obj).forEach((key: string) => {

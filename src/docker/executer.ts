@@ -1,7 +1,11 @@
 import * as Dockerode from "dockerode"
 import { Client } from "ssh2"
 import { Agent } from "http"
-import { defaultDockerExecutersSettings, DockerExecuterOptions, DockerExecuterSettings } from "./dockerTypes"
+import {
+    defaultDockerExecutersSettings,
+    DockerExecuterOptions,
+    DockerExecuterSettings
+} from "./types"
 
 export function sshAgent(opt: any, callback: (err?: Error | any) => void): any {
     const client = new Client()

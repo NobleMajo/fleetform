@@ -20,4 +20,4 @@ COPY --from=build /app/dist /app/dist
 
 WORKDIR /mountpoint
 
-ENTRYPOINT [ "bash" ]
+ENTRYPOINT [ "node", "/app/dist/bin.js", "-f", "/mountpoint"]

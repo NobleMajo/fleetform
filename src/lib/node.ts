@@ -1,10 +1,24 @@
 
-import { fork, ForkOptions } from "child_process"
+import {
+    fork,
+    ForkOptions
+} from "child_process"
 import * as process from "process"
-import { formatPath, getFileType } from "./fs"
-import { LogType, VarInputStream, VarStream } from "./varstream"
+import {
+    formatPath,
+    getFileType
+} from "./fs"
+import {
+    LogType,
+    VarInputStream,
+    VarStream
+} from "./varstream"
 import * as fs from "fs"
-import { defaultCmdTimeout, ShellOptions, ShellTimeoutError } from "./shell"
+import {
+    defaultCmdTimeout,
+    ShellOptions,
+    ShellTimeoutError
+} from "./shell"
 
 export interface NodeOptions extends ForkOptions {
     pipeEnv?: boolean,

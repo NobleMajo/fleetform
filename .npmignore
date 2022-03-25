@@ -1,5 +1,5 @@
 *
-!dist/**/*
+!dist
 !bin
 !README.md
 !package-lock.json

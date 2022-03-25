@@ -1,14 +1,12 @@
-import { Flag, CmdDefinition } from "cmdy"
-import { CmdResult } from 'cmdy';
-import { importModule } from "../lib/node";
+import { Flag, CmdDefinition, CmdResult } from "cmdy"
+import { importModule } from "../lib/node"
 import * as express from "express"
 import * as cors from "cors"
 import {
     applyDefinition
-} from "./apply";
-import { printAndPullImage } from "../docker/dockerFunc";
-import { ContainerMap } from '../fleetform/fleetformTypes';
-import { DockerExecuter } from '../docker/DockerExecuter';
+} from "./apply"
+import { ContainerMap } from "../types"
+import { DockerExecuter } from "../docker/executer"
 
 export const port: Flag = {
     name: "port",

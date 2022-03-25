@@ -1,7 +1,3 @@
-import { DockerConnectionOptions } from "../docker/dockerTypes";
-
-export class FleetValidateError extends Error {
-}
 
 export interface ContainerOptions {
     enabled?: boolean,

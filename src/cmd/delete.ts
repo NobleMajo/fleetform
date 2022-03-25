@@ -1,5 +1,4 @@
-
-import { Flag, CmdDefinition } from "cmdy"
+import { CmdDefinition, CmdResult } from "cmdy"
 import { formatPath } from "../lib/fs"
 import {
     cleanDocker,
@@ -8,12 +7,11 @@ import {
     getNeededImages,
     handleTask,
     Task,
-} from '../task';
-import { DockerExecuter } from '../docker/DockerExecuter';
-import { validateFleetSettings } from "../fleetform/fleetformFunc";
-import { CmdResult } from 'cmdy';
+} from "../task";
+import { DockerExecuter } from "../docker/executer";
+import { validateFleetSettings } from "../func";
 import { importModule } from "../lib/node";
-import { unescapeUnicode } from "../docker/dockerFunc";
+import { unescapeUnicode } from "../docker/func";
 import {
     file,
     ignoreTypescript,

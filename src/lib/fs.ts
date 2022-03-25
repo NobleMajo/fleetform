@@ -1,7 +1,10 @@
 import * as fs from "fs"
 import * as path from "path"
 import { JsonType } from "./JSON"
-import { VarInputStream, VarStream } from "./varstream"
+import {
+    VarInputStream,
+    VarStream
+} from "./varstream"
 
 export function formatPath(filePath: string, cwd: string = process.cwd()): string {
     filePath = filePath.split("\\").join("/")

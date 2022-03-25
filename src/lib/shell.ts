@@ -1,7 +1,13 @@
-import { spawn, SpawnOptionsWithoutStdio } from "child_process"
-import process = require("process")
-import { LogType, VarInputStream, VarStream } from "./varstream"
-import * as fs from "fs"
+import {
+    spawn,
+    SpawnOptionsWithoutStdio
+} from "child_process"
+import * as process from "process"
+import {
+    LogType,
+    VarInputStream,
+    VarStream
+} from "./varstream"
 
 export class ShellTimeoutError extends Error { }
 

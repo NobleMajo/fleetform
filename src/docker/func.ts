@@ -1,9 +1,12 @@
 import { VarInputStream, VarStream } from "../lib/varstream"
-import { DockerExecuter } from "./DockerExecuter"
-import { ContainerInfo, ContainerInspectInfo, NetworkInspectInfo } from "dockerode"
+import { DockerExecuter } from "./executer"
+import { ContainerInfo } from "dockerode"
 import { IncomingMessage } from "http"
 import { Network, Container } from "dockerode"
-import { getContainerCreateSetting, ContainerCreateOptions } from './dockerTypes';
+import {
+    getContainerCreateSetting,
+    ContainerCreateOptions
+} from "./types"
 
 export type RemoveResultName = "deleting" | "deleted" | "ignored" | "warning" | "error"
 export type RemoveResult = [RemoveResultName, string | Error]

@@ -1,5 +1,11 @@
-import { defaultCmdTimeout, shell } from "./shell"
-import { LogType, VarInputStream, VarStream } from "./varstream"
+import {
+    defaultCmdTimeout,
+    shell
+} from "./shell"
+import {
+    LogType,
+    VarInputStream
+} from "./varstream"
 
 export function gitClone(
     repoUrl: string,
