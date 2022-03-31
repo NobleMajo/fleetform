@@ -1,0 +1,67 @@
+{
+    "container": {
+        "nginx1": {
+            "enabled": true,
+            "image": "nginx",
+            "networks": [
+                "cunet"
+            ]
+        },
+        "nginx2": {
+            "enabled": true,
+            "image": "nginx",
+            "networks": [
+                "cunet",
+                "cunet2"
+            ]
+        },
+        "nginx3": {
+            "enabled": true,
+            "image": "nginx",
+            "networks": [
+                "cunet",
+                "cunet3"
+            ]
+        },
+        "postgres": {
+            "enabled": false,
+            "host": "local",
+            "image": "postgres",
+            "networks": [
+                "postgres"
+            ],
+            "expose": [
+                "5432/tcp"
+            ],
+            "envs": {
+                "POSTGRES_USER": "fleetform",
+                "POSTGRES_PASSWORD": "fleetform",
+                "POSTGRES_D": "fleetform"
+            },
+            "volumes": {
+                "/home/store/postgres": "/var/lib/postgresql/data"
+            }
+        },
+        "keycloak": {
+            "enabled": false,
+            "image": "jboss/keycloak",
+            "host": "local",
+            "networks": [
+                "fleetform"
+            ],
+            "expose": [
+                "8443/tcp"
+            ],
+            "envs": {
+                "DB_VENDOR": "postgres",
+                "DB_USER": "fleetform",
+                "DB_PASSWORD": "fleetform",
+                "DB_PORT": "30052",
+                "DB_ADDR": "fleetform",
+                "DB_DATABASE": "fleetform",
+                "KEYCLOAK_USER": "fleetform",
+                "KEYCLOAK_PASSWORD": "fleetform"
+            }
+        }
+    }
+}

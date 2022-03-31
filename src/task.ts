@@ -229,6 +229,9 @@ export function generateApplyTaskSet(
 
     Object.keys(res.containerImageHash).forEach(
         (containerName) => {
+            if (!containerMap[containerName]) {
+                return
+            }
             const imageTag = getFullContainerImage(
                 containerMap[containerName]
             )
