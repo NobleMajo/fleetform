@@ -15,9 +15,9 @@ WORKDIR /app
 COPY --from=build /app/package*.json /app/
 RUN npm ci --only=prod && \
     mkdir /mountpoint && \
-    echo -n "#!/bin/bash\n\nnode /app/dist/index.js\n" >> /usr/local/bin/ff
+    echo -n "#!/bin/bash\n\nnode /app/dist/index.js $@\n" >> /usr/local/bin/ff
 COPY --from=build /app/dist /app/dist
 
 WORKDIR /mountpoint
 
-ENTRYPOINT [ "node", "/app/dist/bin.js", "-f", "/mountpoint"]
+CMD [ "node", "/app/dist/bin.js", "-f", "/mountpoint" ]

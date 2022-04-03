@@ -272,7 +272,7 @@ export async function connect(
     networkName: string,
     labels: {
         [key: string]: string
-    }
+    },
 ): Promise<void> {
     const keys = labels ? Object.keys(labels) : undefined
     const [containers, networks] = await Promise.all([
