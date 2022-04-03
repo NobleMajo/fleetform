@@ -18,10 +18,12 @@
 - [fleetform](#fleetform)
 - [table of contents](#table-of-contents)
 - [about](#about)
-- [Benefit](#benefit)
+- [benefit](#benefit)
 - [already working](#already-working)
 - [work in progress](#work-in-progress)
-- [How it work](#how-it-work)
+- [glossary](#glossary)
+- [example](#example)
+- [how it work](#how-it-work)
 - [getting started](#getting-started)
   - [requirements](#requirements)
   - [install fleetform](#install-fleetform)
@@ -47,7 +49,7 @@ Fleetform is a cli tool which deploys Docker container infrastructures on multip
 !!! WARNING !!!
 !!! THIS README IS OuTDATED !!!
 
-# Benefit
+# benefit
 Sometimes there is the point that you just want to start and manage 2-3 containers on 1-2 hosts without log into each host or create a kubernetes deployment.  
 For example i you just want to test some container or run a single instance of it.  
 
@@ -78,7 +80,16 @@ For example i you just want to test some container or run a single instance of i
  - "--watch/-w" flag to watch changes on a plan and apply changes if changed
  - Better docker network configuration
 
-# How it work
+# glossary
+You need basic knowledge about docker and command line tools.
+ - `fleet`: A container infrastructure defined by a json file or a typescript/javascript project.
+ - `ff`: The command line tools command to run fleetform.
+ - `ffdev`: The development command to run the fleetform typescript code directly with ts-node.
+
+# example
+[example-fleet](https://github.com/majo418/example-fleet) is a example fleetform fleet.
+
+# how it work
 
 It first loads a json, javascript or typescript infrastructure file that already contains your container IAC (Infrastructure as Code) in a json object format.  
 
