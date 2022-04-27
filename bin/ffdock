@@ -1,3 +1,4 @@
 #!/bin/bash
 
-../start.sh
+../start.sh \
+    $@
