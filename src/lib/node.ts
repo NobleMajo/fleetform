@@ -369,7 +369,7 @@ export function rmJsFileByTsFile(
     })
 }
 
-const bin = (    process.env["_"] ?? "").toLowerCase()
+const bin = (process.env["_"] ?? "").toLowerCase()
 export const isTsNode: boolean | undefined = bin.includes("tsnode") || bin.includes("ts-node")
 
 export interface TsNodeOptions extends NodeOptions {
