@@ -1,4 +1,4 @@
-import { Flag, CmdDefinition, CmdResult } from "cmdy"
+import { CmdDefinition, CmdResult, ValueFlag } from "cmdy"
 import { importModule } from "../lib/node"
 import * as express from "express"
 import * as cors from "cors"
@@ -8,7 +8,7 @@ import {
 import { ContainerMap } from "../types"
 import { DockerExecuter } from "../docker/executer"
 
-export const port: Flag = {
+export const port: ValueFlag = {
     name: "port",
     alias: ["web", "listen"],
     shorthand: "p",
@@ -17,7 +17,7 @@ export const port: Flag = {
     description: "Run fleetform apply in api mode. The number defines the port where the webserver is reachable.",
 }
 
-export const key: Flag = {
+export const key: ValueFlag = {
     name: "key",
     alias: ["apikey"],
     shorthand: "a",

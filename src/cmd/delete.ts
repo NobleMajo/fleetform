@@ -4,7 +4,6 @@ import {
     cleanDocker,
     generateDeleteTaskSet,
     getHostResourceInfo,
-    getNeededImages,
     handleTask,
     Task,
 } from "../task";

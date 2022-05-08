@@ -1,4 +1,4 @@
-import { Flag, CmdDefinition, CmdResult } from "cmdy"
+import { CmdDefinition, CmdResult, ValueFlag, BoolFlag } from "cmdy"
 import { formatPath } from "../lib/fs"
 import {
     generateApplyTaskSet,
@@ -14,25 +14,25 @@ import { validateFleetSettings } from "../func";
 import { importModule } from "../lib/node";
 import { printAndPullImage, unescapeUnicode } from "../docker/func";
 
-export const file: Flag = {
+export const file: ValueFlag = {
     name: "file",
     shorthand: "f",
     description: "The path to a file or a folder with a fleet.json, js or ts file!",
     types: ["string"],
 }
 
-export const ignoreTypescript: Flag = {
+export const ignoreTypescript: BoolFlag = {
     name: "ignoreTs",
     alias: ["ignoreTypescript"],
     description: "Don't compile typescript files/projects if found at target file/folder.",
 }
 
-export const ignoreJson: Flag = {
+export const ignoreJson: BoolFlag = {
     name: "ignoreJson",
     description: "Don't parse json files if found at target file.",
 }
 
-export const namePrefix: Flag = {
+export const namePrefix: ValueFlag = {
     name: "namePrefix",
     alias: ["pre", "prefix"],
     description: "Set the container and network prefix (default: 'ff_').",
@@ -40,7 +40,7 @@ export const namePrefix: Flag = {
     default: "ff_"
 }
 
-export const renew: Flag = {
+export const renew: ValueFlag = {
     name: "renew",
     alias: ["re", "ren", "rene"],
     shorthand: "r",
@@ -48,42 +48,42 @@ export const renew: Flag = {
     types: ["string"]
 }
 
-export const updateDelayDays: Flag = {
+export const updateDelayDays: ValueFlag = {
     name: "updateDelayDays",
     alias: ["upid"],
     description: "Update all images every x days.",
     types: ["number"]
 }
 
-export const updateDelayHours: Flag = {
+export const updateDelayHours: ValueFlag = {
     name: "updateDelayHours",
     alias: ["upih"],
     description: "Update all images every x hours.",
     types: ["number"]
 }
 
-export const updateDelayMinutes: Flag = {
+export const updateDelayMinutes: ValueFlag = {
     name: "updateDelayMinutes",
     alias: ["upim"],
     description: "Update all images every x minutes.",
     types: ["number"]
 }
 
-export const updateDelaySeconds: Flag = {
+export const updateDelaySeconds: ValueFlag = {
     name: "updateDelaySeconds",
     alias: ["upis"],
     description: "Update all images every x seconds.",
     types: ["number"]
 }
 
-export const cacheTsOutput: Flag = {
+export const cacheTsOutput: BoolFlag = {
     name: "cacheTsOutput",
     alias: ["cto", "cacheTs"],
     shorthand: "c",
     description: "Don't delete typescript compile output files after loading them.",
 }
 
-export const dontPruneImages: Flag = {
+export const dontPruneImages: BoolFlag = {
     name: "dontPruneImages",
     alias: ["dontPruneImage", "dp", "dontPrune"],
     shorthand: "p",
@@ -114,9 +114,9 @@ export const applyDefinition: CmdDefinition = {
         let file = process.cwd()
         if (
             cmd.valueFlags.file &&
-            typeof cmd.valueFlags.file[0] == "string"
+            typeof cmd.valueFlags.file == "string"
         ) {
-            file = cmd.valueFlags.file[0]
+            file = cmd.valueFlags.file
         }
         file = formatPath(file)
         const ignoreTypescript = cmd.flags.includes("ignorets")
@@ -124,12 +124,12 @@ export const applyDefinition: CmdDefinition = {
         const verbose = cmd.flags.includes("verbose")
         const cacheTsOutput = cmd.flags.includes("cachetsoutput")
         const dontPruneImages = cmd.flags.includes("dontpruneimages")
-        const namePrefix = cmd.valueFlags.nameprefix[0]
-        const renewContainers = cmd.valueFlags.renew
-        const updateDelayDays = Number(cmd.valueFlags.updatedelaydays[0])
-        const updateDelayHours = Number(cmd.valueFlags.updatedelayhours[0])
-        const updateDelayMinutes = Number(cmd.valueFlags.updatedelayminutes[0])
-        const updateDelaySeconds = Number(cmd.valueFlags.updatedelayseconds[0])
+        const namePrefix = cmd.valueFlags.nameprefix
+        const renewContainers = cmd.arrayFlags.renew
+        const updateDelayDays = Number(cmd.valueFlags.updatedelaydays)
+        const updateDelayHours = Number(cmd.valueFlags.updatedelayhours)
+        const updateDelayMinutes = Number(cmd.valueFlags.updatedelayminutes)
+        const updateDelaySeconds = Number(cmd.valueFlags.updatedelayseconds)
 
         const data = await importData(
             verbose,

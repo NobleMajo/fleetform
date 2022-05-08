@@ -1,9 +1,9 @@
-import { Flag, CmdDefinition, CmdParserOptions } from "cmdy"
+import { CmdDefinition, CmdParserOptions, BoolFlag } from "cmdy"
 import applyDefinition from "./apply"
 import apiDefinition from "./api";
 import deleteDefinition from "./delete"
 
-export const verbose: Flag = {
+export const verbose: BoolFlag = {
     name: "verbose",
     shorthand: "v",
     description: "Show basic flag adn target informations.",
