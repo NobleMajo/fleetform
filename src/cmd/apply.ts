@@ -161,7 +161,7 @@ export const applyDefinition: CmdDefinition = {
         const neededImages = getNeededImages(
             settings.container
         )
-        verbose && console.log("Pull images: ", neededImages)
+        verbose && console.debug("Pull images: ", neededImages)
         for (let index = 0; index < neededImages.length; index++) {
             await printAndPullImage(
                 executer,
@@ -183,8 +183,8 @@ export const applyDefinition: CmdDefinition = {
             namePrefix,
         )
         if (tasks.length > 0) {
-            verbose && console.log("TASKS:\n", tasks)
-            console.log("===== START TASKS =====")
+            verbose && console.debug("TASKS:\n", tasks)
+            console.info("===== START TASKS =====")
             !verbose && tasks.forEach(
                 (parallelTasks) => parallelTasks.forEach(
                     () => process.stdout.write("O")
@@ -193,9 +193,9 @@ export const applyDefinition: CmdDefinition = {
             !verbose && process.stdout.write(unescapeUnicode("\\u001b[1000D"))
             for (let index = 0; index < tasks.length; index++) {
                 const parallelTasks = tasks[index]
-                verbose && console.log("START PARALLEL TASK SET (" + parallelTasks.length + "):")
+                verbose && console.debug("START PARALLEL TASK SET (" + parallelTasks.length + "):")
                 verbose && parallelTasks.forEach(
-                    (task: Task) => console.log(
+                    (task: Task) => console.info(
                         " - " +
                         task.type.toUpperCase() + " '" +
                         task.name +
@@ -207,14 +207,14 @@ export const applyDefinition: CmdDefinition = {
                         "'..."
                     )
                 )
-                verbose && console.log("WAIT FOR PARALLEL TASK SET:")
+                verbose && console.debug("WAIT FOR PARALLEL TASK SET:")
                 await Promise.all(parallelTasks.map(async (task: Task) => {
                     await handleTask(
                         executer,
                         task
                     )
                     verbose ?
-                        console.log(
+                        console.info(
                             " - " +
                             task.type.toUpperCase() + " '" +
                             task.name +
@@ -229,16 +229,16 @@ export const applyDefinition: CmdDefinition = {
                         process.stdout.write("X")
                 }))
             }
-            !verbose && console.log(" ")
-            console.log("===== TASKS FINISHED =====")
+            !verbose && console.debug(" ")
+            console.info("===== TASKS FINISHED =====")
         } else {
-            console.log("Nothing to do...")
+            console.info("Nothing to do...")
         }
 
         if (!dontPruneImages) {
-            console.log("Prune unused images...")
+            console.info("Prune unused images...")
             await cleanDocker(executer)
-            console.log("Unused images pruned!")
+            console.info("Unused images pruned!")
         }
 
         if (cmd.cmd.name == "api") {
@@ -274,8 +274,8 @@ export const applyDefinition: CmdDefinition = {
             if (updateDelayMillis < 60 * 1000) {
                 throw new Error("The value of 'updateDelay' needs to be minimum 1 minute!\nThe current value is: " + time)
             }
-            console.log("FleetForm is running in update interval mode!")
-            console.log("Interval time: " + time)
+            console.info("FleetForm is running in update interval mode!")
+            console.info("Interval time: " + time)
             const pullInterval = async () => {
                 for (let index = 0; index < neededImages.length; index++) {
                     await printAndPullImage(
@@ -283,8 +283,8 @@ export const applyDefinition: CmdDefinition = {
                         neededImages[index],
                     )
                 }
-                console.log("FleetForm is running in update interval mode!")
-                console.log("Interval time: " + time)
+                console.loginfo("FleetForm is running in update interval mode!")
+                console.info("Interval time: " + time)
                 setTimeout(() => pullInterval(), updateDelayMillis)
             }
             setTimeout(() => pullInterval(), updateDelayMillis)

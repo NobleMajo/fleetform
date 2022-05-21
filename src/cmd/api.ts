@@ -63,7 +63,7 @@ export const apiDefinition: CmdDefinition = {
             await promise
         }
 
-        console.log("Start fleetform api mode on port '" + port + "'...")
+        console.info("Start fleetform api mode on port '" + port + "'...")
 
         const app = express()
         app.use(cors())
@@ -137,9 +137,7 @@ export const apiDefinition: CmdDefinition = {
         app.listen(
             port,
             "0.0.0.0",
-            () => {
-                console.log("FleetForm API started on port '" + port + "'!")
-            }
+            () => console.info("FleetForm API started on port '" + port + "'!")
         )
     }
 }

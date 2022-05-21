@@ -1,7 +1,7 @@
 {
   "name": "fleetform",
   "description": "A infrastructure as code docker cli tool.",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "main": "dist/types.js",
   "author": "majo418",
   "license": "MIT",

@@ -37,7 +37,7 @@ export async function pullNeededImages(
         if (!currentImages.includes(conImgTag)) {
             try {
                 await printAndPullImage(executor, conImgTag)
-                console.log("Image '" + conImgTag + "' pulled!")
+                console.info("Image '" + conImgTag + "' pulled!")
             } catch (err: Error | any) {
                 if (typeof err.msg == "string") {
                     err.msg = "Error by pulling image '" + conImgTag + "':\n" + err.msg
