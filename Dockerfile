@@ -1,21 +1,23 @@
 FROM node:16-alpine as build
 LABEL version="1.0" maintainer="Majo Richter <majo418@coreunit.net>"
 WORKDIR /app
+RUN npm i -g npm@8
 
-RUN npm i -g npm@latest
 COPY package*.json /app/
 RUN npm i
+
 COPY . /app
-RUN npm run build
+RUN npm run build && \
+    rm -rf src tsconfig.json node_modules
 
 FROM node:16-alpine
 LABEL version="1.0" maintainer="Majo Richter <majo418@coreunit.net>"
 WORKDIR /app
+RUN npm i -g npm@8
 
 COPY --from=build /app/package*.json /app/
-RUN npm ci --only=prod
-COPY --from=build /app/dist /app/dist
+RUN npm ci --omit=dev
 
-WORKDIR /mountpoint
+COPY --from=build /app /app
 
-CMD [ "node", "/app/dist/index.js", "-f", "/mountpoint" ]
+ENTRYPOINT [ "/app/bin/prod" ]

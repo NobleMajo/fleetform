@@ -1,7 +1,7 @@
 {
   "name": "fleetform",
   "description": "A infrastructure as code docker cli tool.",
-  "version": "1.4.3",
+  "version": "1.5.2",
   "main": "dist/types.js",
   "author": "majo418",
   "license": "MIT",
@@ -19,8 +19,9 @@
     "ff"
   ],
   "bin": {
-    "ff": "./bin/ff",
-    "ffdev": "./bin/ffdev"
+    "ff": "./bin/prod",
+    "ffdev": "./bin/dev",
+    "ffcon": "./bin/con"
   },
   "repository": {
     "url": "git@github.com:majo418/fleetform.git",

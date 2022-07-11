@@ -283,7 +283,7 @@ export const applyDefinition: CmdDefinition = {
                         neededImages[index],
                     )
                 }
-                console.loginfo("FleetForm is running in update interval mode!")
+                console.info("FleetForm is running in update interval mode!")
                 console.info("Interval time: " + time)
                 setTimeout(() => pullInterval(), updateDelayMillis)
             }

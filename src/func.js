@@ -8,8 +8,8 @@ function parseContainer(container, obj) {
         obj == null) {
         throw new Error("Container '" + container + "' is not a object!");
     }
-    var keys = Object.keys(obj);
-    keys.forEach(function (key) {
+    const keys = Object.keys(obj);
+    keys.forEach((key) => {
         if (!exports.allowedKeys.includes(key)) {
             throw new Error("The key '" + key + "' is not allowed for a container '" + container + "'!");
         }
@@ -28,9 +28,8 @@ function parseContainer(container, obj) {
         obj.publish == null) {
         obj.publish = {};
     }
-    for (var _i = 0, _a = Object.keys(obj.publish); _i < _a.length; _i++) {
-        var key = _a[_i];
-        var splittedKey = key.split("/");
+    for (const key of Object.keys(obj.publish)) {
+        const splittedKey = key.split("/");
         splittedKey[0] = Number(splittedKey[0]);
         if (splittedKey.length != 2 ||
             isNaN(splittedKey[0]) ||
@@ -38,9 +37,9 @@ function parseContainer(container, obj) {
             splittedKey[1].length < 1) {
             throw new Error("The publish key '" + key + "' is not a valid key like: '80/tcp' (<port>/<protocol>)");
         }
-        var value = obj.publish[key];
-        var address = "";
-        var port = -1;
+        const value = obj.publish[key];
+        let address = "";
+        let port = -1;
         if (!isNaN(value)) {
             port = value;
         }
@@ -55,7 +54,7 @@ function parseContainer(container, obj) {
             }
         }
         else if (typeof value == "string") {
-            var index = value.lastIndexOf(":");
+            const index = value.lastIndexOf(":");
             if (index < 1) {
                 throw new Error("The publish value of '" + key + "' has not port (<host: string>:<port: number>)");
             }
@@ -112,17 +111,17 @@ function parseContainerMap(obj) {
         obj == null) {
         throw new Error("'container' is not a object!");
     }
-    var map = {};
-    Object.keys(obj).forEach(function (key) {
+    const map = {};
+    Object.keys(obj).forEach((key) => {
         map[key.toLowerCase()] = parseContainer(key, obj[key]);
     });
     return map;
 }
 exports.parseContainerMap = parseContainerMap;
 function containerExists(name, container) {
-    var containerNames = Object.keys(container);
-    for (var index = 0; index < containerNames.length; index++) {
-        var hostName = containerNames[index];
+    const containerNames = Object.keys(container);
+    for (let index = 0; index < containerNames.length; index++) {
+        const hostName = containerNames[index];
         if (hostName.toLowerCase() == name.toLowerCase()) {
             return true;
         }
@@ -131,9 +130,9 @@ function containerExists(name, container) {
 }
 exports.containerExists = containerExists;
 function getContainer(name, container) {
-    var containerNames = Object.keys(container);
-    for (var index = 0; index < containerNames.length; index++) {
-        var containerName = containerNames[index];
+    const containerNames = Object.keys(container);
+    for (let index = 0; index < containerNames.length; index++) {
+        const containerName = containerNames[index];
         if (containerName.toLowerCase() == name.toLowerCase()) {
             return containerNames[containerName];
         }
