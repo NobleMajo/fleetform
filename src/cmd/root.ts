@@ -2,6 +2,7 @@ import { CmdDefinition, CmdParserOptions, BoolFlag } from "cmdy"
 import applyDefinition from "./apply"
 import apiDefinition from "./api";
 import deleteDefinition from "./delete"
+import planDefinition from "./plan";
 
 export const verbose: BoolFlag = {
     name: "verbose",
@@ -16,6 +17,7 @@ const root: CmdDefinition = {
     flags: [
     ],
     cmds: [
+        planDefinition,
         applyDefinition,
         apiDefinition,
         deleteDefinition,

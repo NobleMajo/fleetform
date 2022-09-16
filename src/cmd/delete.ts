@@ -61,6 +61,7 @@ export const deleteDefinition: CmdDefinition = {
         )
         const settings = validateFleetSettings(
             data,
+            {},
             namePrefix,
         )
         //TODO multihost feature for delete

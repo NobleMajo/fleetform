@@ -1,4 +1,8 @@
 
+export interface ContainerEnv {
+    [key: string]: (string | string[]),
+}
+
 export interface ContainerOptions {
     enabled?: boolean,
     image: string,
@@ -8,9 +12,7 @@ export interface ContainerOptions {
         [key: string]: number | string | [string, number],
     },
     expose?: string[],
-    envs?: {
-        [key: string]: string,
-    },
+    envs?: ContainerEnv,
     volumes?: {
         [key: string]: string,
     },

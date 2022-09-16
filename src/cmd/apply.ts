@@ -8,11 +8,14 @@ import {
     getNeededImages,
     Task,
     cleanDocker,
+    TaskSet,
 } from "../task";
 import { DockerExecuter } from "../docker/executer";
-import { validateFleetSettings } from "../func";
+import { validateFleetSettings, KeyValueObject, prepareSecretStore, parseSecretStoreKey } from '../func';
 import { importModule } from "../lib/node";
 import { printAndPullImage, unescapeUnicode } from "../docker/func";
+import { promises as fs } from "fs"
+import * as path from "path"
 
 export const file: ValueFlag = {
     name: "file",
@@ -90,11 +93,69 @@ export const dontPruneImages: BoolFlag = {
     description: "Don't prune unused images after work.",
 }
 
+const secretStore: KeyValueObject = {}
+
+export const secretStorePath: ValueFlag = {
+    name: "secretStorePath",
+    alias: ["secretStore", "secretPath", "varPath"],
+    description: "The path of a string key value object json file for fleetform variables.",
+    shorthand: "s",
+    types: ["string"],
+    exe: async (cmd, value) => {
+        if (!value.startsWith("/")) {
+            value = path.join(process.cwd(), "/", value)
+        }
+        const secretStore2 = prepareSecretStore(
+            JSON.parse(
+                await fs.readFile(
+                    value,
+                    {
+                        encoding: "utf8"
+                    }
+                )
+            )
+        )
+        for (const key of Object.keys(secretStore2)) {
+            if (typeof secretStore[key] == "string") {
+                console.warn(
+                    "WARNING: Overwrite secret-store variable '" + key +
+                    "' with a new value from the file '" + value + "'"
+                )
+            }
+            secretStore[key] = secretStore2[key]
+        }
+
+    }
+}
+
+export const secretStoreVar: ValueFlag = {
+    name: "secretStoreVar",
+    alias: ["var", "secret", "secretVar"],
+    shorthand: "v",
+    description: "A key value string seperated with '=' that is set to the secret-store",
+    types: ["string"],
+    exe: async (cmd, value) => {
+        const index = value.indexOf("=")
+        if (index == -1) {
+            throw new Error("A manual set secret-store variable flag not containes a value seperated with '='")
+        }
+        const key = parseSecretStoreKey(value.substring(0, index))
+        const value2 = value.substring(index + 1)
+        if (typeof secretStore[key] == "string") {
+            console.warn(
+                "WARNING: Overwrite secret-store variable '" + key +
+                "' with a new value from the file '" + value + "'"
+            )
+        }
+        secretStore[key] = value2
+    }
+}
+
 export const applyDefinition: CmdDefinition = {
     name: "apply",
-    alias: ["appl", "app", "pply"],
+    alias: ["appl", "app", "pply", "ap"],
     description: "Applys the fleetplan container infrstructure.",
-    details: "Load and validate the fleet-config, creates and print a fleet-plan and test the defined host connections.",
+    details: "Load and validate the fleet-config, creates and print a fleet-plan, test the defined host connections and applys the infrasturcture.",
     flags: [
         file,
         ignoreTypescript,
@@ -111,90 +172,21 @@ export const applyDefinition: CmdDefinition = {
     cmds: [
     ],
     exe: async (cmd) => {
-        let file = process.cwd()
-        if (
-            cmd.valueFlags.file &&
-            typeof cmd.valueFlags.file == "string"
-        ) {
-            file = cmd.valueFlags.file
-        }
-        file = formatPath(file)
-        const ignoreTypescript = cmd.flags.includes("ignorets")
-        const ignoreJson = cmd.flags.includes("ignorejson")
-        const verbose = cmd.flags.includes("verbose")
-        const cacheTsOutput = cmd.flags.includes("cachetsoutput")
-        const dontPruneImages = cmd.flags.includes("dontpruneimages")
-        const namePrefix = cmd.valueFlags.nameprefix
-        const renewContainers = cmd.arrayFlags.renew
-        const updateDelayDays = Number(cmd.valueFlags.updatedelaydays)
-        const updateDelayHours = Number(cmd.valueFlags.updatedelayhours)
-        const updateDelayMinutes = Number(cmd.valueFlags.updatedelayminutes)
-        const updateDelaySeconds = Number(cmd.valueFlags.updatedelayseconds)
+        const applyVars = await prepareAppyVars(cmd)
 
-        const data = await importData(
-            verbose,
-            cmd,
-            file,
-            ignoreTypescript,
-            ignoreJson,
-            !cacheTsOutput
-        )
-        const settings = validateFleetSettings(
-            data,
-            namePrefix,
-        )
-        //TODO multihost feature for apply
-        const executer = await DockerExecuter.createExecuter()
-        const res = await getHostResourceInfo(
-            executer,
-            namePrefix,
-        )
-        const renew: string[] = [
-            ...renewContainers,
-            ...(
-                cmd && typeof (cmd as any).task == "function" ?
-                    await ((cmd as any).task(settings.container, executer)) :
-                    []
-            )
-        ]
-
-        const neededImages = getNeededImages(
-            settings.container
-        )
-        verbose && console.debug("Pull images: ", neededImages)
-        for (let index = 0; index < neededImages.length; index++) {
-            await printAndPullImage(
-                executer,
-                neededImages[index]
-            )
-        }
-
-        const imageHashs = await getImageHashs(
-            executer,
-            neededImages
-        )
-
-        const tasks = generateApplyTaskSet(
-            res,
-            settings.container,
-            imageHashs,
-            renew,
-            [],
-            namePrefix,
-        )
-        if (tasks.length > 0) {
-            verbose && console.debug("TASKS:\n", tasks)
+        if (applyVars.tasks.length > 0) {
+            applyVars.verbose && console.debug("TASKS:\n", applyVars.tasks)
             console.info("===== START TASKS =====")
-            !verbose && tasks.forEach(
+            !applyVars.verbose && applyVars.tasks.forEach(
                 (parallelTasks) => parallelTasks.forEach(
                     () => process.stdout.write("O")
                 )
             )
-            !verbose && process.stdout.write(unescapeUnicode("\\u001b[1000D"))
-            for (let index = 0; index < tasks.length; index++) {
-                const parallelTasks = tasks[index]
-                verbose && console.debug("START PARALLEL TASK SET (" + parallelTasks.length + "):")
-                verbose && parallelTasks.forEach(
+            !applyVars.verbose && process.stdout.write(unescapeUnicode("\\u001b[1000D"))
+            for (let index = 0; index < applyVars.tasks.length; index++) {
+                const parallelTasks = applyVars.tasks[index]
+                applyVars.verbose && console.debug("START PARALLEL TASK SET (" + parallelTasks.length + "):")
+                applyVars.verbose && parallelTasks.forEach(
                     (task: Task) => console.info(
                         " - " +
                         task.type.toUpperCase() + " '" +
@@ -207,13 +199,13 @@ export const applyDefinition: CmdDefinition = {
                         "'..."
                     )
                 )
-                verbose && console.debug("WAIT FOR PARALLEL TASK SET:")
+                applyVars.verbose && console.debug("WAIT FOR PARALLEL TASK SET:")
                 await Promise.all(parallelTasks.map(async (task: Task) => {
                     await handleTask(
-                        executer,
+                        applyVars.executer,
                         task
                     )
-                    verbose ?
+                    applyVars.verbose ?
                         console.info(
                             " - " +
                             task.type.toUpperCase() + " '" +
@@ -229,7 +221,7 @@ export const applyDefinition: CmdDefinition = {
                         process.stdout.write("X")
                 }))
             }
-            !verbose && console.debug(" ")
+            !applyVars.verbose && console.debug(" ")
             console.info("===== TASKS FINISHED =====")
         } else {
             console.info("Nothing to do...")
@@ -237,7 +229,7 @@ export const applyDefinition: CmdDefinition = {
 
         if (!dontPruneImages) {
             console.info("Prune unused images...")
-            await cleanDocker(executer)
+            await cleanDocker(applyVars.executer)
             console.info("Unused images pruned!")
         }
 
@@ -245,17 +237,17 @@ export const applyDefinition: CmdDefinition = {
             return
         }
         let updateDelayMillis: number = 0
-        if (!isNaN(updateDelayDays)) {
-            updateDelayMillis += updateDelayDays * 1000 * 60 * 60 * 24
+        if (!isNaN(applyVars.updateDelayDays)) {
+            updateDelayMillis += applyVars.updateDelayDays * 1000 * 60 * 60 * 24
         }
-        if (!isNaN(updateDelayHours)) {
-            updateDelayMillis += updateDelayHours * 1000 * 60 * 60
+        if (!isNaN(applyVars.updateDelayHours)) {
+            updateDelayMillis += applyVars.updateDelayHours * 1000 * 60 * 60
         }
-        if (!isNaN(updateDelayMinutes)) {
-            updateDelayMillis += updateDelayMinutes * 1000 * 60
+        if (!isNaN(applyVars.updateDelayMinutes)) {
+            updateDelayMillis += applyVars.updateDelayMinutes * 1000 * 60
         }
-        if (!isNaN(updateDelaySeconds)) {
-            updateDelayMillis += updateDelaySeconds * 1000
+        if (!isNaN(applyVars.updateDelaySeconds)) {
+            updateDelayMillis += applyVars.updateDelaySeconds * 1000
         }
         if (updateDelayMillis > 0) {
             const date = new Date(updateDelayMillis)
@@ -277,10 +269,10 @@ export const applyDefinition: CmdDefinition = {
             console.info("FleetForm is running in update interval mode!")
             console.info("Interval time: " + time)
             const pullInterval = async () => {
-                for (let index = 0; index < neededImages.length; index++) {
+                for (let index = 0; index < applyVars.neededImages.length; index++) {
                     await printAndPullImage(
-                        executer,
-                        neededImages[index],
+                        applyVars.executer,
+                        applyVars.neededImages[index],
                     )
                 }
                 console.info("FleetForm is running in update interval mode!")
@@ -289,6 +281,114 @@ export const applyDefinition: CmdDefinition = {
             }
             setTimeout(() => pullInterval(), updateDelayMillis)
         }
+    },
+}
+
+export interface ApplyPrepareVars {
+    tasks: TaskSet,
+    executer: DockerExecuter,
+    neededImages: string[],
+    verbose: boolean,
+    dontPruneImages: boolean,
+    updateDelayDays: number,
+    updateDelayHours: number,
+    updateDelayMinutes: number,
+    updateDelaySeconds: number,
+}
+
+export async function prepareAppyVars(
+    cmd: CmdResult
+): Promise<ApplyPrepareVars> {
+    let file = process.cwd()
+    if (
+        cmd.valueFlags.file &&
+        typeof cmd.valueFlags.file == "string"
+    ) {
+        file = cmd.valueFlags.file
+    }
+    file = formatPath(file)
+    const ignoreTypescript = cmd.flags.includes("ignorets")
+    const ignoreJson = cmd.flags.includes("ignorejson")
+    const verbose = cmd.flags.includes("verbose")
+    const cacheTsOutput = cmd.flags.includes("cachetsoutput")
+    const dontPruneImages = cmd.flags.includes("dontpruneimages")
+    const namePrefix = cmd.valueFlags.nameprefix
+    const renewContainers = cmd.arrayFlags.renew
+    const updateDelayDays = Number(cmd.valueFlags.updatedelaydays)
+    const updateDelayHours = Number(cmd.valueFlags.updatedelayhours)
+    const updateDelayMinutes = Number(cmd.valueFlags.updatedelayminutes)
+    const updateDelaySeconds = Number(cmd.valueFlags.updatedelayseconds)
+
+    const data = await importData(
+        verbose,
+        cmd,
+        file,
+        ignoreTypescript,
+        ignoreJson,
+        !cacheTsOutput
+    )
+
+    const settings = validateFleetSettings(
+        data,
+        secretStore,
+        namePrefix,
+    )
+    //TODO multihost feature for apply
+    const executer = await DockerExecuter.createExecuter()
+    const res = await getHostResourceInfo(
+        executer,
+        namePrefix,
+    )
+    const renew: string[] = [
+        ...renewContainers,
+        ...(
+            (
+                cmd && typeof (cmd as any).task == "function"
+            ) ?
+                await (
+                    (cmd as any).task(
+                        settings.container,
+                        executer
+                    )
+                ) :
+                []
+        ),
+    ]
+    const neededImages = getNeededImages(
+        settings.container
+    )
+    verbose && console.debug("Pull images: ", neededImages)
+    for (let index = 0; index < neededImages.length; index++) {
+        await printAndPullImage(
+            executer,
+            neededImages[index]
+        )
+    }
+
+    const imageHashs = await getImageHashs(
+        executer,
+        neededImages
+    )
+
+    const tasks = generateApplyTaskSet(
+        res,
+        settings.container,
+        imageHashs,
+        renew,
+        [],
+        namePrefix,
+    )
+
+    return {
+        tasks: tasks,
+        executer: executer,
+        neededImages: neededImages,
+        verbose: verbose,
+        dontPruneImages: dontPruneImages,
+        updateDelayDays: updateDelayDays,
+        updateDelayHours: updateDelayHours,
+        updateDelayMinutes: updateDelayMinutes,
+        updateDelaySeconds: updateDelaySeconds,
     }
 }
 

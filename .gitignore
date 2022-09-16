@@ -41,8 +41,8 @@ lerna-debug.log*
 
 # typescript
 dist
-src
-!src/**/*.ts
+src/**/*.js
+src/**/*.d.ts
 
 # git
 !.keep

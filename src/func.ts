@@ -2,6 +2,7 @@ import {
     ContainerPlan,
     ContainerMap,
     FleetSettings,
+    ContainerEnv,
 } from "./types"
 import { DockerExecuterOptions } from "./docker/types"
 import { DockerExecuter } from "./docker/executer"
@@ -21,9 +22,81 @@ export interface ConnectionInfoMap {
 
 export const allowedKeys: string[] = ["enabled", "image", "tag", "publish", "expose", "envs", "volumes", "networks", "args", "host", "tty"]
 
+export interface KeyValueObject {
+    [key: string]: string,
+}
+
+export function parseSecretStoreKey(key: string): string {
+    key = key.toUpperCase()
+    if (key.includes("\\")) {
+        key = key.split("\\").join("_")
+    }
+    if (key.includes("/")) {
+        key = key.split("/").join("_")
+    }
+    if (key.includes("-")) {
+        key = key.split("-").join("_")
+    }
+    while (key.includes("__")) {
+        key = key.split("__").join("_")
+    }
+    return key
+}
+
+export function prepareSecretStore(
+    secretStore: any
+): KeyValueObject {
+    if (
+        typeof secretStore != "object" ||
+        Array.isArray(secretStore) ||
+        secretStore == null
+    ) {
+        throw new Error("Secret store argument is not a key value object")
+    }
+
+    const obj: KeyValueObject = {}
+    for (const key of Object.keys(secretStore)) {
+        if (typeof secretStore[key] != "string") {
+            throw new Error("The Secret store value of '" + key + "' is not a string object")
+        }
+        obj[parseSecretStoreKey(key)] = secretStore[key]
+    }
+    return obj
+}
+
+export function parseContainerEnv(
+    containerName: string,
+    env: ContainerEnv,
+    secretStore: KeyValueObject
+): KeyValueObject {
+    for (const key of Object.keys(env)) {
+        if (Array.isArray(env[key])) {
+            env[key] = (env[key] as string[])
+                .map((value: string) => {
+                    if (value.startsWith("%") && value.endsWith("%")) {
+                        const key: string = parseSecretStoreKey(
+                            value.slice(1, -1)
+                        )
+                        if (key.length == 0) {
+                            throw new Error("Empty secret store variable in container env for '" + containerName + "'")
+                        }
+                        if (typeof secretStore[key] != "string") {
+                            throw new Error("The Secret variable %'" + key + "'% in the container env of '" + containerName + "' is not defined.")
+                        }
+                        return secretStore[key]
+                    }
+                    return value
+                })
+                .join("") as string
+        }
+    }
+    return env as KeyValueObject
+}
+
 export function parseContainer(
     container: string,
     obj: any,
+    secretStore: KeyValueObject,
 ): ContainerPlan {
     if (
         typeof obj != "object" ||
@@ -115,6 +188,11 @@ export function parseContainer(
     ) {
         obj.envs = {}
     }
+    obj.envs = parseContainerEnv(
+        container,
+        obj.envs,
+        secretStore,
+    )
     if (
         typeof obj.volumes != "object" ||
         Array.isArray(obj.volumes) ||
@@ -135,7 +213,8 @@ export function parseContainer(
 }
 
 export function parseContainerMap(
-    obj: any
+    obj: any,
+    secretStore: KeyValueObject
 ): ContainerMap {
     if (
         typeof obj != "object" ||
@@ -146,7 +225,7 @@ export function parseContainerMap(
     }
     const map: ContainerMap = {}
     Object.keys(obj).forEach((key: string) => {
-        map[key.toLowerCase()] = parseContainer(key, obj[key])
+        map[key.toLowerCase()] = parseContainer(key, obj[key], secretStore)
     })
     return map
 }
@@ -177,7 +256,8 @@ export function getContainer(name: string, container: ContainerMap): ContainerPl
 
 export function validateFleetSettings(
     obj: any,
-    namePrefix?: string
+    secretStore: KeyValueObject,
+    namePrefix?: string,
 ): FleetSettings {
     if (typeof namePrefix != "string") {
         namePrefix = obj["namePrefix"]
@@ -187,6 +267,6 @@ export function validateFleetSettings(
     }
     return {
         namePrefix: namePrefix,
-        container: parseContainerMap(obj["container"])
+        container: parseContainerMap(obj["container"], secretStore)
     }
 }
