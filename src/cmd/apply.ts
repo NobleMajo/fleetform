@@ -167,7 +167,7 @@ export const applyDefinition: CmdDefinition = {
         updateDelayHours,
         updateDelayMinutes,
         updateDelaySeconds,
-        dontPruneImages,
+        dontPruneImages
     ],
     cmds: [
     ],
@@ -340,7 +340,7 @@ export async function prepareAppyVars(
         namePrefix,
     )
     const renew: string[] = [
-        ...renewContainers,
+        ...(renewContainers ? renewContainers : []),
         ...(
             (
                 cmd && typeof (cmd as any).task == "function"
