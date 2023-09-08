@@ -20,8 +20,8 @@
   ],
   "bin": {
     "ff": "./bin/prod",
-    "ffdev": "./bin/dev",
-    "ffcon": "./bin/con"
+    "ffd": "./bin/dev",
+    "ffc": "./bin/con"
   },
   "repository": {
     "url": "git@github.com:majo418/fleetform.git",
