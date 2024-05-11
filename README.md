@@ -1,4 +1,4 @@
-# fleetform
+# fleetform (deprecated project)
 ![Docker](https://img.shields.io/docker/image-size/majo418/fleetform)
 ![CI/CD](https://github.com/majo418/fleetform/workflows/Image/badge.svg)
 ![CI/CD](https://github.com/majo418/fleetform/workflows/Publish/badge.svg)
